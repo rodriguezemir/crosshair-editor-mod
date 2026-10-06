@@ -3,11 +3,11 @@ package site.zvolcan.client.mixin;
 import com.mojang.renderpearl.api.pipeline.RenderPipeline;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.Hud;
-import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.resources.Identifier;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
+import site.zvolcan.client.CrosshairEditorClient;
 
 @Mixin(Hud.class)
 public abstract class InGameHudMixin {
@@ -28,11 +28,13 @@ public abstract class InGameHudMixin {
 		int width,
 		int height
 	) {
+		if (!CrosshairEditorClient.isCustomCrosshairEnabled()) {
+			context.blitSprite(pipeline, sprite, x, y, width, height);
+			return;
+		}
 		int centerX = x + width / 2;
 		int centerY = y + height / 2;
 
-		context.fill(RenderPipelines.GUI_INVERT, centerX - 4, centerY, centerX + 5, centerY + 1, 0xFFFFFFFF);
-		context.fill(RenderPipelines.GUI_INVERT, centerX, centerY - 4, centerX + 1, centerY, 0xFFFFFFFF);
-		context.fill(RenderPipelines.GUI_INVERT, centerX, centerY + 1, centerX + 1, centerY + 5, 0xFFFFFFFF);
+		CrosshairEditorClient.getCrosshairManager().draw(context, centerX, centerY);
 	}
 }
