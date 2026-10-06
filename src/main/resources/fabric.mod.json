@@ -20,6 +20,9 @@
 		],
 		"client": [
 			"site.zvolcan.client.CrosshairEditorClient"
+		],
+		"modmenu": [
+			"site.zvolcan.client.CrosshairEditorModMenu"
 		]
 	},
 	"mixins": [
