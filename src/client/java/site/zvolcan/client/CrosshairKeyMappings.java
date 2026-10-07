@@ -36,7 +36,7 @@ public final class CrosshairKeyMappings {
 		openRequested = false;
 		// Discard all queued clicks even while typing/in another menu: never reopen later.
 		while (openConfiguration.consumeClick()) requested = true;
-		if (!requested || client.level == null || client.gui.screen() != null) return;
+		if (!requested || client.level == null || client.screen != null) return;
 		CrosshairConfiguration configuration = CrosshairEditorClient.getConfiguration();
 		if (configuration != null) {
 			client.setScreenAndShow(new CrosshairConfigScreen(null, configuration));

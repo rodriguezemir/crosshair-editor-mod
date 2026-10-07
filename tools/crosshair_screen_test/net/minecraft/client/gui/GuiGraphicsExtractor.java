@@ -1,6 +1,6 @@
 package net.minecraft.client.gui;
 
-import com.mojang.renderpearl.api.pipeline.RenderPipeline;
+import com.mojang.blaze3d.pipeline.RenderPipeline;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.network.chat.Component;

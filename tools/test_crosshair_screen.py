@@ -30,7 +30,7 @@ class CrosshairScreenTests(unittest.TestCase):
             *(CLIENT / "crosshair" / name for name in
               ("Crosshair.java", "CrosshairManager.java", "CrosshairPresets.java")),
             *BOUNDARY.rglob("*.java"),
-            old_boundary / "com/mojang/renderpearl/api/pipeline/RenderPipeline.java",
+            old_boundary / "com/mojang/blaze3d/pipeline/RenderPipeline.java",
             old_boundary / "net/minecraft/client/renderer/RenderPipelines.java",
         ]
         result = subprocess.run(

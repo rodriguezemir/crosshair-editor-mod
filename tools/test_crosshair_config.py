@@ -2,7 +2,6 @@
 
 from pathlib import Path
 import subprocess
-import tempfile
 import unittest
 
 from test_crosshair_manager import java_tool
@@ -16,19 +15,19 @@ STUBS = ROOT / "tools/crosshair_manager_test"
 class CrosshairConfigTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.classes = tempfile.TemporaryDirectory(prefix="crosshair-config-test-")
-        cls.addClassCleanup(cls.classes.cleanup)
+        cls.classes = ROOT / "tools/crosshair_wiring_test/.classes/config"
+        cls.classes.mkdir(parents=True, exist_ok=True)
         sources = [
             CLIENT / "config/CrosshairSettings.java",
             CLIENT / "crosshair/CrosshairPresets.java",
             CLIENT / "crosshair/Crosshair.java",
             ROOT / "tools/crosshair_config_test/CrosshairConfigBehaviorTest.java",
-            STUBS / "com/mojang/renderpearl/api/pipeline/RenderPipeline.java",
+            STUBS / "com/mojang/blaze3d/pipeline/RenderPipeline.java",
             STUBS / "net/minecraft/client/renderer/RenderPipelines.java",
             STUBS / "net/minecraft/client/gui/GuiGraphicsExtractor.java",
         ]
         result = subprocess.run(
-            [java_tool("javac"), "--release", "25", "-d", cls.classes.name,
+            [java_tool("javac"), "--release", "25", "-d", str(cls.classes),
              *(str(path) for path in sources)],
             capture_output=True, text=True, timeout=60,
         )
@@ -37,7 +36,7 @@ class CrosshairConfigTests(unittest.TestCase):
 
     def run_case(self, name):
         result = subprocess.run(
-            [java_tool("java"), "-ea", "-cp", self.classes.name,
+            [java_tool("java"), "-ea", "-cp", str(self.classes),
              "CrosshairConfigBehaviorTest", name],
             capture_output=True, text=True, timeout=30,
         )

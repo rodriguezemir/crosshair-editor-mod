@@ -1,9 +1,5 @@
 package net.minecraft.client.gui;
 
-import net.minecraft.client.gui.screens.Screen;
-
+/** Minecraft 26.1.2 HUD identity boundary; active screens belong to Minecraft. */
 public final class Gui {
-	private Screen screen;
-	public Screen screen() { return screen; }
-	public void setScreen(Screen screen) { this.screen = screen; }
 }

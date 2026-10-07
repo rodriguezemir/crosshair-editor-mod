@@ -4,7 +4,7 @@ import json
 import os
 from pathlib import Path
 import subprocess
-import tempfile
+import uuid
 import unittest
 
 from test_crosshair_manager import java_tool
@@ -15,9 +15,16 @@ CLIENT = ROOT / "src/client/java/site/zvolcan/client"
 STUBS = ROOT / "tools/crosshair_manager_test"
 
 
+def minecraft_metadata(cache):
+    properties = dict(line.split("=", 1) for line in
+                      (ROOT / "gradle.properties").read_text(encoding="utf-8").splitlines()
+                      if "=" in line and not line.startswith("#"))
+    return cache / "fabric-loom" / properties["minecraft_version"] / "mojang_minecraft_info.json"
+
+
 def resolved_gson():
     cache = Path(os.environ.get("GRADLE_USER_HOME", Path.home() / ".gradle")) / "caches"
-    metadata = cache / "fabric-loom/26.3/mojang_minecraft_info.json"
+    metadata = minecraft_metadata(cache)
     libraries = json.loads(metadata.read_text(encoding="utf-8"))["libraries"]
     version = next(entry["name"].split(":")[2] for entry in libraries
                    if entry["name"].startswith("com.google.code.gson:gson:"))
@@ -31,9 +38,9 @@ def resolved_gson():
 class CrosshairPersistenceTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.classes = tempfile.TemporaryDirectory(prefix="crosshair-persistence-test-")
-        cls.addClassCleanup(cls.classes.cleanup)
-        cls.classpath = os.pathsep.join((cls.classes.name, str(resolved_gson())))
+        cls.classes = ROOT / "tools/crosshair_wiring_test/.classes/persistence"
+        cls.classes.mkdir(parents=True, exist_ok=True)
+        cls.classpath = os.pathsep.join((str(cls.classes), str(resolved_gson())))
         sources = [
             CLIENT / "config/CrosshairSettings.java",
             CLIENT / "config/CrosshairSettingsStore.java",
@@ -41,25 +48,26 @@ class CrosshairPersistenceTests(unittest.TestCase):
             *(CLIENT / "crosshair" / name for name in
               ("Crosshair.java", "CrosshairManager.java", "CrosshairPresets.java")),
             ROOT / "tools/crosshair_config_test/CrosshairPersistenceBehaviorTest.java",
-            STUBS / "com/mojang/renderpearl/api/pipeline/RenderPipeline.java",
+            STUBS / "com/mojang/blaze3d/pipeline/RenderPipeline.java",
             STUBS / "net/minecraft/client/renderer/RenderPipelines.java",
             STUBS / "net/minecraft/client/gui/GuiGraphicsExtractor.java",
         ]
         result = subprocess.run(
             [java_tool("javac"), "--release", "25", "-cp", cls.classpath,
-             "-d", cls.classes.name, *(str(path) for path in sources)],
+             "-d", str(cls.classes), *(str(path) for path in sources)],
             capture_output=True, text=True, timeout=60,
         )
         if result.returncode:
             raise AssertionError(f"javac failed:\n{result.stdout}{result.stderr}")
 
     def run_case(self, name):
-        with tempfile.TemporaryDirectory(prefix="crosshair-persistence-files-") as directory:
-            result = subprocess.run(
-                [java_tool("java"), "-ea", "-cp", self.classpath,
-                 "CrosshairPersistenceBehaviorTest", name, directory],
-                capture_output=True, text=True, timeout=30,
-            )
+        directory = ROOT / "tools/crosshair_wiring_test/.fixtures" / ("persistence-" + name + "-" + uuid.uuid4().hex)
+        directory.mkdir(parents=True)
+        result = subprocess.run(
+            [java_tool("java"), "-ea", "-cp", self.classpath,
+             "CrosshairPersistenceBehaviorTest", name, str(directory)],
+            capture_output=True, text=True, timeout=30,
+        )
         self.assertEqual(0, result.returncode, result.stdout + result.stderr)
 
     def test_missing_file_defaults_and_all_fields_round_trip(self):

@@ -3,7 +3,7 @@ import com.google.gson.JsonParser;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.blaze3d.platform.InputConstants;
-import com.mojang.renderpearl.api.pipeline.RenderPipeline;
+import com.mojang.blaze3d.pipeline.RenderPipeline;
 import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -17,7 +17,7 @@ import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.Hud;
+import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.resources.Identifier;
@@ -170,23 +170,23 @@ public final class CrosshairWiringBehaviorTest {
 		client.level = null; key.queueClicks(2); ClientTickEvents.END_CLIENT_TICK.fire(client);
 		check(client.openings == 0 && !key.consumeClick(), "no world does not open; clicks drained");
 		client.level = new Object();
-		Screen typing = new Screen(); client.gui.setScreen(typing);
+		Screen typing = new Screen(); client.screen = typing;
 		key.queueClicks(3); ClientTickEvents.END_CLIENT_TICK.fire(client);
-		check(client.gui.screen() == typing && client.openings == 0 && !key.consumeClick(), "typing/other menus preserved");
-		client.gui.setScreen(null); ClientTickEvents.END_CLIENT_TICK.fire(client);
+		check(client.screen == typing && client.openings == 0 && !key.consumeClick(), "typing/other menus preserved");
+		client.screen = null; ClientTickEvents.END_CLIENT_TICK.fire(client);
 		check(client.openings == 0, "menu clicks do not open later");
 		config.update(config.settings().withEnabled(false));
 		key.queueClicks(4); ClientTickEvents.END_CLIENT_TICK.fire(client);
 		check(client.openings == 1 && !key.consumeClick(), "queued clicks open once and all drained, even when custom crosshair disabled");
-		check(client.gui.screen() instanceof CrosshairConfigScreen, "native config screen opened");
-		CrosshairConfigScreen screen = (CrosshairConfigScreen) client.gui.screen();
+		check(client.screen instanceof CrosshairConfigScreen, "native config screen opened");
+		CrosshairConfigScreen screen = (CrosshairConfigScreen) client.screen;
 		check(screen.previous == null && screen.configuration == config, "same live configuration and nullable previous");
 		key.queueClicks(2); ClientTickEvents.END_CLIENT_TICK.fire(client);
-		check(client.gui.screen() == screen && client.openings == 1 && !key.consumeClick(), "open screen not replaced");
-		client.gui.setScreen(null); ClientTickEvents.END_CLIENT_TICK.fire(client);
+		check(client.screen == screen && client.openings == 1 && !key.consumeClick(), "open screen not replaced");
+		client.screen = null; ClientTickEvents.END_CLIENT_TICK.fire(client);
 		check(client.openings == 1, "closing does not replay consumed clicks");
 		key.queueClicks(1); ClientTickEvents.END_CLIENT_TICK.fire(client);
-		check(client.openings == 2 && ((CrosshairConfigScreen) client.gui.screen()).configuration == config, "reopen shares single state");
+		check(client.openings == 2 && ((CrosshairConfigScreen) client.screen).configuration == config, "reopen shares single state");
 	}
 
 	private static void key(Path language) throws Exception {
@@ -194,13 +194,15 @@ public final class CrosshairWiringBehaviorTest {
 		check(KeyMappingHelper.registered.size() == 1 && KeyMapping.Category.registered.size() == 1
 			&& ClientTickEvents.END_CLIENT_TICK.callbacks.size() == 1, "category/key/tick registration idempotent");
 		KeyMapping key = KeyMappingHelper.registered.getFirst();
-		check(key.getDefaultKey().getValue() == InputConstants.UNKNOWN.getValue(), "unbound native UNKNOWN default");
+		check(key.getDefaultKey().getValue() == InputConstants.KEY_BACKSLASH
+			&& key.getDefaultKey().getValue() == 92, "native backslash default");
 		key.setKey(new InputConstants.Key(79));
-		check(key.boundKey().getValue() == 79 && key.getDefaultKey().getValue() == -1, "native mapping remains remappable");
+		check(key.boundKey().getValue() == 79 && key.getDefaultKey().getValue() == 92,
+			"native mapping remains remappable without changing its default");
 		JsonObject labels = JsonParser.parseString(Files.readString(language)).getAsJsonObject();
 		check(labels.get(key.getName()).getAsString().equals("Open crosshair configuration"), "actual binding name localized");
 		check(key.getCategory().id().namespace().equals("crosshaireditor"), "namespaced native category");
-		check(labels.get(key.getCategory().labelKey()).getAsString().equals("Crosshair Editor"), "verified 26.3 category translation scheme");
+		check(labels.get(key.getCategory().labelKey()).getAsString().equals("Crosshair Editor"), "verified 26.1.2 category translation scheme");
 	}
 
 	private record Source(Minecraft getClient, List<String> errors) implements FabricClientCommandSource {
@@ -239,16 +241,16 @@ public final class CrosshairWiringBehaviorTest {
 		CommandDispatcher<FabricClientCommandSource> dispatcher = dispatcher();
 		Minecraft client = new Minecraft(); client.level = new Object();
 		Source source = new Source(client);
-		Screen chat = new Screen(); client.gui.setScreen(chat);
+		Screen chat = new Screen(); client.screen = chat;
 		check(dispatcher.execute("crosshaireditor", source) == 1, "client command succeeds without permissions");
-		check(client.gui.screen() == chat && client.openings == 0, "dispatch only queues, never replaces chat synchronously");
-		client.gui.setScreen(null); // Simulated native chat submit closes its own screen after dispatch.
+		check(client.screen == chat && client.openings == 0, "dispatch only queues, never replaces chat synchronously");
+		client.screen = null; // Simulated native chat submit closes its own screen after dispatch.
 		ClientTickEvents.END_CLIENT_TICK.fire(client);
-		check(client.openings == 1 && client.gui.screen() instanceof CrosshairConfigScreen, "next tick survives chat closure");
-		CrosshairConfigScreen screen = (CrosshairConfigScreen) client.gui.screen();
+		check(client.openings == 1 && client.screen instanceof CrosshairConfigScreen, "next tick survives chat closure");
+		CrosshairConfigScreen screen = (CrosshairConfigScreen) client.screen;
 		check(screen.configuration == config && screen.previous == null, "shared disabled settings, return to game not chat");
 		check(source.errors.isEmpty() && !CrosshairEditorClient.isCustomCrosshairEnabled(), "disabled remains disabled without command errors");
-		client.gui.setScreen(null); ClientTickEvents.END_CLIENT_TICK.fire(client);
+		client.screen = null; ClientTickEvents.END_CLIENT_TICK.fire(client);
 		check(client.openings == 1, "closing config does not replay command");
 	}
 
@@ -261,16 +263,16 @@ public final class CrosshairWiringBehaviorTest {
 		for (int i = 0; i < 3; i++) check(dispatcher.execute("crosshaireditor", source) == 1, "repeat command queued");
 		key.queueClicks(3); ClientTickEvents.END_CLIENT_TICK.fire(client);
 		check(client.openings == 1 && !key.consumeClick(), "duplicate command and key requests coalesce and drain");
-		Screen configScreen = client.gui.screen();
+		Screen configScreen = client.screen;
 		dispatcher.execute("crosshaireditor", source); ClientTickEvents.END_CLIENT_TICK.fire(client);
-		check(client.gui.screen() == configScreen && client.openings == 1, "existing config never replaced");
-		client.gui.setScreen(null); ClientTickEvents.END_CLIENT_TICK.fire(client);
+		check(client.screen == configScreen && client.openings == 1, "existing config never replaced");
+		client.screen = null; ClientTickEvents.END_CLIENT_TICK.fire(client);
 		check(client.openings == 1, "request made with config open never replays");
 		dispatcher.execute("crosshaireditor", source);
-		Screen menu = new Screen(); client.gui.setScreen(menu);
+		Screen menu = new Screen(); client.screen = menu;
 		key.queueClicks(2); ClientTickEvents.END_CLIENT_TICK.fire(client);
-		check(client.gui.screen() == menu && client.openings == 1 && !key.consumeClick(), "intervening menu preserved and all requests discarded");
-		client.gui.setScreen(null); ClientTickEvents.END_CLIENT_TICK.fire(client);
+		check(client.screen == menu && client.openings == 1 && !key.consumeClick(), "intervening menu preserved and all requests discarded");
+		client.screen = null; ClientTickEvents.END_CLIENT_TICK.fire(client);
 		check(client.openings == 1, "menu-discarded command never opens later");
 		dispatcher.execute("crosshaireditor", source); client.level = null;
 		ClientTickEvents.END_CLIENT_TICK.fire(client);
@@ -301,11 +303,11 @@ public final class CrosshairWiringBehaviorTest {
 	}
 
 	private static void anchor() throws Exception {
-		check(InGameHudMixin.class.getAnnotation(Mixin.class).value()[0] == Hud.class, "same HUD annotation target");
+		check(InGameHudMixin.class.getAnnotation(Mixin.class).value()[0] == Gui.class, "Minecraft 26.1.2 GUI HUD annotation target");
 		Redirect annotation = redirect().getAnnotation(Redirect.class);
 		check(annotation.method().equals("extractCrosshair(Lnet/minecraft/client/gui/GuiGraphicsExtractor;Lnet/minecraft/client/DeltaTracker;)V"), "exact enclosing descriptor");
 		check(annotation.at().value().equals("INVOKE") && annotation.at().ordinal() == 0, "original invoke anchor ordinal");
-		check(annotation.at().target().equals("Lnet/minecraft/client/gui/GuiGraphicsExtractor;blitSprite(Lcom/mojang/renderpearl/api/pipeline/RenderPipeline;Lnet/minecraft/resources/Identifier;IIII)V"),
+		check(annotation.at().target().equals("Lnet/minecraft/client/gui/GuiGraphicsExtractor;blitSprite(Lcom/mojang/blaze3d/pipeline/RenderPipeline;Lnet/minecraft/resources/Identifier;IIII)V"),
 			"exact original sprite-call target descriptor");
 	}
 }
