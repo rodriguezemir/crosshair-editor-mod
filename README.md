@@ -8,7 +8,7 @@ In a world, enter **`/crosshaireditor`** in chat. This client-only command needs
 
 Alternatively, press **backslash (`\`)**, the default **Open crosshair configuration** binding. Rebind it in **Options > Controls > Key Binds > Crosshair Editor** if needed. Close chat and other menus before pressing the key. Both openers share the same settings and never replace another screen on the opening tick.
 
-Use the top-left **Settings** and **Presets** tabs (names shorten to fit). Presets offers **Cross**, **Dot**, **X**, **Circle**, and **Heart** with **Select** actions and a **Selected** status. **Enabled** and **Inverted** show **On/Off** beside their checkbox squares. A right-hand preview shows the configured crosshair at four-times scale; it shrinks or disappears when there is insufficient space. The screen is an overlay with no fullscreen background fill; its preview has a translucent backing.
+Use the top-left **Settings** and **Presets** tabs (names shorten to fit). Presets offers **Cross**, **Dot**, **X**, **Circle**, and **Heart** with **Select** actions and a **Selected** status. **Enabled** and **Inverted** show **On/Off** beside their checkbox squares. A right-hand preview shows the configured crosshair at four-times scale; it shrinks or disappears when there is insufficient space. The editor's custom panels overlay Minecraft's inherited screen background; Minecraft still applies its normal fullscreen background and any configured screen blur. The preview has a translucent backing.
 
 | Action | Control |
 | --- | --- |
@@ -38,7 +38,7 @@ Missing files use unsaved defaults until a commit. Invalid, unsupported, or unre
 
 ## Inverted crosshair
 
-Initialization retains the original named `default` cross and then selects `configured`, generated from the saved settings. The original uses three disjoint white `GUI_INVERT` fills covering 17 unique pixels in a 9×9 cross. Generated presets also avoid overlapping fills, so the shared center is not inverted twice. No Gaussian blur or texture is used at runtime; the historical generator, tests, and PNG are inactive.
+Initialization retains the original named `default` cross and then selects `configured`, generated from the saved settings. The original uses three disjoint white `GUI_INVERT` fills covering 17 unique pixels in a 9×9 cross. Generated presets also avoid overlapping fills, so the shared center is not inverted twice. Crosshair rendering uses neither Gaussian blur nor a crosshair texture; the historical generator, tests, and PNG are inactive.
 
 At full opacity, white Difference blending produces `1 - background` per RGB channel. Arbitrary RGB colors use the `GUI_INVERT` equation `d + s * (1 - 2d)`; they are not a luminance-threshold effect or necessarily complete inversion. This pipeline ignores nonzero source alpha, so configured inversion opacity correctly attenuates source RGB instead; zero opacity emits no fills. With inversion off, `GUI` uses normal ARGB opacity.
 
@@ -81,7 +81,7 @@ bash ./gradlew build --rerun-tasks
 
 Headless Java harnesses exercise actual settings, persistence, presets, manager, screen controls, initializer, client command dispatch, key callback, and HUD redirect logic against narrow Minecraft/Fabric boundaries, cached Gson, and real cached Brigadier. They test default geometry, visible labels/status, control-driven manager fills and JSON reloads, editing, small-viewport scrolling and clipped-row clicks, click draining, menu protection, and exact vanilla fallback arguments. Gradle compiles against the real client API; its test task may be `NO-SOURCE`, not a behavior-test run.
 
-These checks do **not** prove runtime Mixin application, native device dispatch, GPU blending, or live screen visuals. Manual checks on dark/light/colored backgrounds, GUI scales, HUD visibility, and the attack indicator remain pending. No live Minecraft/GPU check has been performed.
+Screen geometry checks call custom extraction directly and do not model the inherited background lifecycle. These checks do **not** prove runtime Mixin application, native device dispatch, GPU blending, or live screen visuals. Manual checks on dark/light/colored backgrounds, GUI scales, HUD visibility, and the attack indicator remain pending. No live Minecraft/GPU check has been performed.
 
 ## Development setup
 
