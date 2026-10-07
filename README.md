@@ -6,9 +6,9 @@ Configure a native Cross, Dot, X, Circle, or Heart crosshair with live, saved se
 
 In a world, enter **`/crosshaireditor`** in chat. This client-only command needs no OP or server permission and opens configuration after chat closes, even with the custom crosshair disabled.
 
-Alternatively, in **Options > Controls > Key Binds > Crosshair Editor**, assign **Open crosshair configuration** (unbound by default to avoid conflicts). Close chat and other menus, then press your assigned key. Both openers share the same settings and never replace another screen on the opening tick.
+Alternatively, press **backslash (`\`)**, the default **Open crosshair configuration** binding. Rebind it in **Options > Controls > Key Binds > Crosshair Editor** if needed. Close chat and other menus before pressing the key. Both openers share the same settings and never replace another screen on the opening tick.
 
-Use the top-left **Settings** and **Presets** tabs (names shorten to fit). Presets offers **Cross**, **Dot**, **X**, **Circle**, and **Heart** with **Select** actions and a **Selected** status. **Enabled** and **Inverted** show **On/Off** beside their checkbox squares. There is no large preview panel.
+Use the top-left **Settings** and **Presets** tabs (names shorten to fit). Presets offers **Cross**, **Dot**, **X**, **Circle**, and **Heart** with **Select** actions and a **Selected** status. **Enabled** and **Inverted** show **On/Off** beside their checkbox squares. A right-hand preview shows the configured crosshair at four-times scale; it shrinks or disappears when there is insufficient space. The custom panels and preview overlay Minecraft's inherited fullscreen menu background; the preview has a translucent backing. Minecraft still applies its inherited background blur when menu background blurriness is at least 1.
 
 | Action | Control |
 | --- | --- |
@@ -32,13 +32,13 @@ Editing supports a caret, Left / Right, Backspace, Delete, and Ctrl+A. Leaving a
 | Color | RGB hex, exactly `#RRGGBB` |
 | Opacity | 0–100 percent |
 
-Valid commits apply immediately and save to Fabric's config directory, normally `config/crosshaireditor.json`. The footer reports **Saved** or **Unsaved** and any storage warning; hover the footer or use narration for the full warning.
+Valid commits apply immediately and save to Fabric's config directory, normally `config/crosshaireditor.json`. The footer actions are **Apply** (reselect the configured crosshair without writing), **Save** (retry saving the current settings), and **Exit** (close, resolving any active edit). The footer reports **Saved** or **Unsaved** and any storage warning; hover the footer or use narration for the full warning.
 
 Missing files use unsaved defaults until a commit. Invalid, unsupported, or unreadable files are preserved, and writes are blocked for that session. Repair the file manually and restart to re-enable saving. Edits still apply live while locked or after a save failure, but remain visibly unsaved; an IO failure can be retried by committing again.
 
 ## Inverted crosshair
 
-Initialization retains the original named `default` cross and then selects `configured`, generated from the saved settings. The original uses three disjoint white `GUI_INVERT` fills covering 17 unique pixels in a 9×9 cross. Generated presets also avoid overlapping fills, so the shared center is not inverted twice. No Gaussian blur or texture is used at runtime; the historical generator, tests, and PNG are inactive.
+Initialization retains the original named `default` cross and then selects `configured`, generated from the saved settings. The original uses three disjoint white `GUI_INVERT` fills covering 17 unique pixels in a 9×9 cross. Generated presets also avoid overlapping fills, so the shared center is not inverted twice. No Gaussian blur or texture is used to draw the crosshair at runtime; the historical generator, tests, and PNG are inactive. This is separate from Minecraft's inherited configuration-screen background and blur.
 
 At full opacity, white Difference blending produces `1 - background` per RGB channel. Arbitrary RGB colors use the `GUI_INVERT` equation `d + s * (1 - 2d)`; they are not a luminance-threshold effect or necessarily complete inversion. This pipeline ignores nonzero source alpha, so configured inversion opacity correctly attenuates source RGB instead; zero opacity emits no fills. With inversion off, `GUI` uses normal ARGB opacity.
 
@@ -67,19 +67,37 @@ Names are exact and case-sensitive. Registering an existing name replaces its cr
 
 ## Verification
 
-Minecraft 26.3 / Java 25 checks:
+This `v1.21.11` branch targets **Minecraft 1.21.11 only**, with Java 21 or newer at runtime,
+Fabric Loader 0.19.5, Fabric API 0.141.6+1.21.11, Mod Menu 17.0.1, and stable Fabric Loom 1.18.3.
+Unlike the 26.x branches, this obfuscated release needs official Mojang mappings and the
+`net.fabricmc.fabric-loom-remap` plugin, with `modImplementation` dependencies.
+
+Use **JDK 25 to launch the checked-in Gradle/Loom build**, independently of the mod's
+Java 21 target. Production and headless harness compilation use `--release 21`;
+packaged classes have Java class major version 65 and both mixin configs use `JAVA_21`.
+Compile first to populate the target dependency cache:
 
 ```bash
+bash ./gradlew compileClientJava --rerun-tasks
 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tools -p 'test_crosshair*.py' -v
-bash ./gradlew compileClientJava
-bash ./gradlew build
+bash ./gradlew build --rerun-tasks
 ```
 
-Headless Java harnesses exercise actual settings, persistence, presets, manager, screen controls, initializer, client command dispatch, key callback, and HUD redirect logic against narrow Minecraft/Fabric boundaries, cached Gson, and real cached Brigadier. They test default geometry, visible labels/status, control-driven manager fills and JSON reloads, editing, small-viewport scrolling and clipped-row clicks, click draining, menu protection, and exact vanilla fallback arguments. Gradle compiles against the real client API; its test task may be `NO-SOURCE`, not a behavior-test run.
+Headless Java harnesses exercise actual settings, persistence, presets, manager, screen controls, initializer, client command dispatch, key callback, and HUD redirect logic against narrow Minecraft/Fabric boundaries, cached Gson, and real cached Brigadier. They test default geometry, visible labels/status, control-driven manager fills and JSON reloads, editing, small-viewport scrolling and clipped-row clicks, click draining, menu protection, and exact vanilla fallback arguments. Direct-render geometry assertions cover custom foreground submission only. A separate lifecycle fixture checks the native final wrapper's background-before-render ordering, inherited full-viewport menu background, conditional blur, virtual dispatch, and deferred elements against the target bytecode contract. It records boundary events, not textures or GPU output; panorama and in-game-UI background branches are not simulated. Gradle compiles against the real client API; its test task may be `NO-SOURCE`, not a behavior-test run.
 
 These checks do **not** prove runtime Mixin application, native device dispatch, GPU blending, or live screen visuals. Manual checks on dark/light/colored backgrounds, GUI scales, HUD visibility, and the attack indicator remain pending. No live Minecraft/GPU check has been performed.
 
 ## Development setup
+
+Set `JAVA_HOME` to a JDK 25 for the build; no separate Gradle installation is needed.
+The distributable is `build/libs/crosshaireditor-1.21.11-v0.0.1.jar`, **not** a sources
+jar or the named development jar in `build/devlibs`. `build` runs `remapJar`, converting
+Minecraft references and mixin annotation descriptors to Fabric's **intermediary** namespace.
+Loom remaps these annotations directly; this build does not emit or require a legacy refmap.
+Use Minecraft 1.21.11, Java 21 or newer, and the dependency versions above to run the mod.
+The headless harnesses resolve Gson and Brigadier using `minecraft_version` from
+`gradle.properties` and respect `GRADLE_USER_HOME`; their input stubs use 1.21.11 GLFW values.
+CI runs both the real remapped build and the complete behavioral suite.
 
 See the [Fabric setup documentation](https://docs.fabricmc.net/develop/getting-started/creating-a-project#setting-up) for your IDE.
 

@@ -9,7 +9,7 @@ import java.util.HashSet;
 import java.util.Set;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.*;
@@ -29,6 +29,7 @@ public final class CrosshairScreenBehaviorTest {
 			case "layout" -> layout();
 			case "editor" -> editor();
 			case "render" -> render();
+			case "renderEntry" -> renderEntry();
 			case "interaction" -> interaction();
 			case "types" -> types();
 			case "scroll" -> scroll();
@@ -59,18 +60,19 @@ public final class CrosshairScreenBehaviorTest {
 	private static void press(Screen screen, int input) { screen.keyPressed(key(input)); }
 	private static void click(Screen screen, AbstractWidget widget) {
 		require(screen.mouseClicked(new MouseButtonEvent(widget.getRight() - 10,
-			widget.getY() + 13, new MouseButtonInfo(1, 0)), false), "mouse accepted");
+			widget.getY() + 13, new MouseButtonInfo(InputConstants.MOUSE_BUTTON_LEFT, 0)), false), "mouse accepted");
 	}
 	private static void text(Screen screen, String text) {
-		text.codePoints().forEach(c -> screen.charTyped(new CharacterEvent(c)));
+		text.codePoints().forEach(c -> screen.charTyped(new CharacterEvent(c, 0)));
 	}
 	private static void replace(Screen screen, String text) {
-		screen.keyPressed(new KeyEvent(InputConstants.KEY_A, 97, InputConstants.MOD_CONTROL));
+		screen.keyPressed(new KeyEvent(InputConstants.KEY_A, 0, InputConstants.MOD_CONTROL));
 		text(screen, text);
 	}
-	private static GuiGraphicsExtractor draw(Screen screen) {
-		GuiGraphicsExtractor graphics = new GuiGraphicsExtractor();
-		screen.extractRenderState(graphics, -1, -1, 0);
+	/** Exercises only custom foreground submission, not the native Screen wrapper/background. */
+	private static GuiGraphics draw(Screen screen) {
+		GuiGraphics graphics = new GuiGraphics();
+		screen.render(graphics, -1, -1, 0);
 		return graphics;
 	}
 	private static void require(boolean condition, String message) {
@@ -79,12 +81,18 @@ public final class CrosshairScreenBehaviorTest {
 
 	private static void layout() {
 		CrosshairScreenLayout wide = new CrosshairScreenLayout(1000, 600, false);
-		require(wide.panelWidth() == 600, "60% wide panel");
-		require(new CrosshairScreenLayout(500, 400, false).panelWidth() == 360, "360 minimum when space permits");
+		require(wide.panelWidth() == 400, "40% wide panel");
+		require(new CrosshairScreenLayout(500, 400, false).panelWidth() == 260, "260 minimum when space permits");
+		require(wide.previewLeft() == 416 && wide.previewTop() == 38 && wide.previewSize() == 506,
+			"wide preview origin and available square size");
+		require(new CrosshairScreenLayout(240, 160, false).previewSize() == 0, "no preview without horizontal space");
 		for (int[] viewport : new int[][] {{320, 240}, {240, 160}, {1000, 600}}) {
 			CrosshairScreenLayout l = new CrosshairScreenLayout(viewport[0], viewport[1], false);
 			require(l.left() + l.panelWidth() <= viewport[0] - 8, "panel within viewport");
-			require(l.bottom() <= viewport[1] - 28, "fixed footer protected");
+			require(l.bottom() == viewport[1] - 56, "content ends above fixed footer actions");
+			require(l.contains(l.left(), l.top()) && !l.contains(l.left() - 1, l.top())
+				&& !l.contains(l.left() + l.panelWidth(), l.top()) && !l.contains(l.left(), l.bottom()),
+				"left/top inclusive and right/bottom exclusive content bounds");
 			for (int i = 0; i < 8; i++) {
 				int scroll = l.reveal(i, 0);
 				require(l.rowY(i, scroll) >= l.top(), "revealed row top " + i);
@@ -118,14 +126,27 @@ public final class CrosshairScreenBehaviorTest {
 
 	private static void render() {
 		Fixture f = fixture(1000, 600);
-		GuiGraphicsExtractor g = draw(f.screen);
-		require(g.fills.getFirst().color() == 0xFF001C05, "opaque fullscreen palette");
-		require(g.fills.getFirst().x2() == 1000 && g.fills.getFirst().y2() == 600, "full viewport");
-		require(g.fills.stream().filter(r -> r.color() == 0xFF001006).count() == 5, "two tabs three panels");
+		GuiGraphics g = draw(f.screen);
+		require(g.fills.stream().noneMatch(r -> r.x1() == 0 && r.y1() == 0 && r.x2() == 1000 && r.y2() == 600),
+			"custom rendering submits no fullscreen background fill");
+		var contentClip = new GuiGraphics.Clip(8, 38, 408, 544);
+		require(g.fills.stream().filter(r -> r.color() == 0xFF001006).toList().equals(List.of(
+			new GuiGraphics.Fill(8, 8, 42, 30, 0xFF001006, null, null),
+			new GuiGraphics.Fill(48, 8, 82, 30, 0xFF001006, null, null),
+			new GuiGraphics.Fill(8, 550, 68, 572, 0xFF001006, null, null),
+			new GuiGraphics.Fill(74, 550, 134, 572, 0xFF001006, null, null),
+			new GuiGraphics.Fill(140, 550, 200, 572, 0xFF001006, null, null),
+			new GuiGraphics.Fill(8, 38, 408, 124, 0xFF001006, contentClip, null),
+			new GuiGraphics.Fill(8, 132, 408, 218, 0xFF001006, contentClip, null),
+			new GuiGraphics.Fill(8, 226, 408, 286, 0xFF001006, contentClip, null))),
+			"exact two tabs, three footer actions and three clipped panels");
+		require(g.texts.stream().filter(t -> t.value().equals("Size")).allMatch(t -> contentClip.equals(t.clip())),
+			"settings rows use content scissor");
+		assertPreview(g, f.config.settings(), 0xFFFFFFFF);
 		require(g.texts.stream().filter(t -> t.y() < 38).count() == 2, "two visible tab names");
-		require(g.texts.stream().noneMatch(GuiGraphicsExtractor.Text::shadow), "no shadows");
+		require(g.texts.stream().noneMatch(GuiGraphics.Text::shadow), "no shadows");
 		require(g.fills.stream().anyMatch(r -> r.color() == 0xFFBDEFF2 && r.y2() - r.y1() == 1), "cyan thin underline");
-		List<GuiGraphicsExtractor.Fill> on = g.fills.stream().filter(r -> r.color() == 0xFFFF8F8F).toList();
+		List<GuiGraphics.Fill> on = g.fills.stream().filter(r -> r.color() == 0xFFFF8F8F).toList();
 		require(on.size() == 2 && on.getFirst().x2() - on.getFirst().x1() == 16, "square red booleans");
 		for (var square : on) {
 			require(g.fills.stream().anyMatch(r -> r.color() == 0xFF5C2525
@@ -143,6 +164,93 @@ public final class CrosshairScreenBehaviorTest {
 		g = draw(f.screen);
 		require(g.fills.stream().filter(r -> r.color() == 0xFFBDEFF2 && r.y1() == 29).count() == 1,
 			"selected tab indicator distinct from unselected tab keyboard focus");
+		require(g.fills.stream().anyMatch(r -> r.color() == 0xFFBDEFF2 && r.x1() == 56 && r.x2() == 74
+			&& r.y1() == 26 && r.y2() == 27), "unselected tab has separate inset focus indicator");
+		f.config.update(f.config.settings().withType(CrosshairSettings.Type.DOT).withSize(2)
+			.withRgb(0x123ABC).withOpacity(50).withInverted(false));
+		g = draw(f.screen);
+		assertPreview(g, f.config.settings(), 0x80123ABC);
+		require(!child(f.screen, 6).active && !child(f.screen, 7).active, "draw refreshes relevance after settings change");
+		Fixture small = fixture(240, 160);
+		g = draw(small.screen);
+		require(g.fills.stream().filter(r -> r.color() == 0xCC001006).toList().equals(List.of(
+			new GuiGraphics.Fill(240, 38, 240, 38, 0xCC001006, null, null))), "small preview has zero extent");
+		require(g.fills.stream().noneMatch(r -> r.pipeline() != null), "no preview crosshair fills without space");
+	}
+
+	/** In-world, non-in-game-UI lifecycle observations; not a Minecraft/GPU simulation. */
+	private static void renderEntry() throws Exception {
+		Fixture f = fixture(1000, 600);
+		GuiGraphics background = new GuiGraphics();
+		f.screen.renderBackground(background, 13, 17, 0.25f);
+		require(background.menuBackgrounds.equals(List.of(new GuiGraphics.MenuBackground(0, 0, 1000, 600))),
+			"inherited background remains observable before custom rendering");
+		require(CrosshairConfigScreen.class.getMethod("renderBackground", GuiGraphics.class,
+			int.class, int.class, float.class).getDeclaringClass() == Screen.class,
+			"configuration screen inherits the native background policy");
+		var wrapper = Screen.class.getMethod("renderWithTooltipAndSubtitles", GuiGraphics.class,
+			int.class, int.class, float.class);
+		require(wrapper.getReturnType() == void.class && java.lang.reflect.Modifier.isFinal(wrapper.getModifiers()),
+			"native wrapper signature is public final void");
+		GuiGraphics custom = draw(f.screen);
+		require(custom.menuBackgrounds.isEmpty() && !custom.events.contains("blur"),
+			"direct render measures only custom foreground, not inherited background or blur");
+		for (int blurriness : new int[] {0, 1, 5}) {
+			// Fixture-only stand-in for the native Options value; no production setting is changed.
+			Screen.class.getField("testMenuBackgroundBlurriness").setInt(f.screen, blurriness);
+			GuiGraphics frame = new GuiGraphics();
+			wrapper.invoke(f.screen, frame, 13, 17, 0.25f);
+			List<String> expected = new ArrayList<>(List.of("nextStratum"));
+			if (blurriness >= 1) expected.add("blur");
+			expected.addAll(List.of("menuBackground", "deferredSubtitles", "nextStratum"));
+			expected.addAll(custom.events);
+			expected.add("deferredElements");
+			require(frame.events.equals(expected), "background precedes custom rendering and deferred elements: " + blurriness);
+			require(frame.menuBackgrounds.equals(background.menuBackgrounds), "inherited menu texture spans full viewport");
+			require(frame.fills.equals(custom.fills) && frame.texts.equals(custom.texts),
+				"native wrapper preserves exact custom palette, clipping and foreground geometry");
+			assertPreview(frame, f.config.settings(), 0xFFFFFFFF);
+		}
+		// Observe virtual dispatch and unchanged mouse/delta arguments separately from production UI.
+		Screen probe = new Screen(Component.literal("Lifecycle probe")) {
+			@Override public void renderBackground(GuiGraphics graphics, int x, int y, float delta) {
+				require(x == 13 && y == 17 && delta == 0.25f, "background arguments forwarded unchanged");
+				graphics.events.add("backgroundOverride");
+				super.renderBackground(graphics, x, y, delta);
+			}
+			@Override public void render(GuiGraphics graphics, int x, int y, float delta) {
+				require(x == 13 && y == 17 && delta == 0.25f, "render arguments forwarded unchanged");
+				graphics.events.add("renderOverride");
+			}
+		};
+		probe.init(320, 240);
+		GuiGraphics dispatched = new GuiGraphics();
+		wrapper.invoke(probe, dispatched, 13, 17, 0.25f);
+		require(dispatched.events.equals(List.of("nextStratum", "backgroundOverride", "blur", "menuBackground",
+			"deferredSubtitles", "nextStratum", "renderOverride", "deferredElements")),
+			"final wrapper virtually dispatches background before foreground");
+	}
+
+	private static void assertPreview(GuiGraphics g, CrosshairSettings settings, int color) {
+		var clip = new GuiGraphics.Clip(416, 38, 922, 544);
+		require(g.fills.stream().filter(r -> r.color() == 0xCC001006).toList().equals(List.of(
+			new GuiGraphics.Fill(416, 38, 922, 544, 0xCC001006, null, null))), "translucent preview bounds");
+		Set<String> expected = new HashSet<>();
+		for (String pixel : expectedPixels(settings)) {
+			String[] xy = pixel.split(",");
+			int left = 669 + Integer.parseInt(xy[0]) * 4;
+			int top = 291 + Integer.parseInt(xy[1]) * 4;
+			for (int x = left; x < left + 4; x++) for (int y = top; y < top + 4; y++) expected.add(x + "," + y);
+		}
+		Set<String> actual = new HashSet<>();
+		for (var fill : g.fills.stream().filter(r -> r.pipeline() != null).toList()) {
+			require(clip.equals(fill.clip()), "preview crosshair scissor");
+			require(fill.pipeline() == (settings.inverted() ? RenderPipelines.GUI_INVERT : RenderPipelines.GUI)
+				&& fill.color() == color, "preview pipeline and rendering color follow settings");
+			for (int x = fill.x1(); x < fill.x2(); x++) for (int y = fill.y1(); y < fill.y2(); y++)
+				require(actual.add(x + "," + y), "scaled preview fills do not overlap");
+		}
+		require(actual.equals(expected), "preview emits exact four-times-scaled geometry at its center");
 	}
 
 	private static void interaction() throws Exception {
@@ -217,7 +325,7 @@ public final class CrosshairScreenBehaviorTest {
 			require(opacity.getBottom() <= size[1] - 28, "scroll reaches final row");
 			click(f.screen, opacity); replace(f.screen, "55"); press(f.screen, InputConstants.KEY_RETURN);
 			require(f.config.settings().opacity() == 55, "last row mouse reachable");
-			GuiGraphicsExtractor g = draw(f.screen);
+			GuiGraphics g = draw(f.screen);
 			require(g.texts.stream().filter(t -> t.value().equals("Opacity")).allMatch(t -> t.clip() != null), "content scissor");
 			require(g.texts.stream().filter(t -> t.value().equals("Saved")).allMatch(t -> t.clip() == null), "footer fixed unclipped");
 			require(child(f.screen, 0).getY() == 8, "tab fixed");
@@ -265,7 +373,7 @@ public final class CrosshairScreenBehaviorTest {
 		CrosshairConfigScreen screen = new CrosshairConfigScreen(null, config); screen.init(240, 160);
 		screen.setFocused(child(screen, 2)); press(screen, InputConstants.KEY_SPACE);
 		require(!config.saved() && !config.writable(), "locked live update unsaved");
-		GuiGraphicsExtractor g = new GuiGraphicsExtractor(); screen.extractRenderState(g, 20, 145, 0);
+		GuiGraphics g = new GuiGraphics(); screen.render(g, 20, 145, 0);
 		require(g.texts.stream().anyMatch(t -> t.value().equals("Unsaved")), "real unsaved footer");
 		require(g.texts.stream().noneMatch(t -> t.value().contains(path.toString())), "path not dumped into footer");
 		require(g.tooltip != null && g.tooltip.getString().contains(config.warning()), "full warning tooltip");
@@ -298,7 +406,7 @@ public final class CrosshairScreenBehaviorTest {
 	private static void labels(String section) {
 		for (int[] viewport : new int[][] {{240, 160}, {320, 240}, {1000, 600}}) {
 			Fixture f = fixture(viewport[0], viewport[1]);
-			GuiGraphicsExtractor g = draw(f.screen);
+			GuiGraphics g = draw(f.screen);
 			if (section.equals("labels")) for (int i = 0; i < 2; i++) {
 				AbstractWidget tab = child(f.screen, i);
 				String name = i == 0 ? "Sett" : "Pres";
@@ -394,7 +502,7 @@ public final class CrosshairScreenBehaviorTest {
 	}
 
 	private static void assertOutput(Fixture f, CrosshairSettings expected) {
-		GuiGraphicsExtractor g = new GuiGraphicsExtractor();
+		GuiGraphics g = new GuiGraphics();
 		f.manager.selected().draw(g, 100, 80);
 		Set<String> pixels = new HashSet<>();
 		int color = expected.argb();
@@ -415,7 +523,7 @@ public final class CrosshairScreenBehaviorTest {
 		CrosshairManager reloaded = new CrosshairManager();
 		CrosshairConfiguration fresh = new CrosshairConfiguration(reloaded, new CrosshairSettingsStore(f.file));
 		require(fresh.settings().equals(expected), "fresh controller/store reloads JSON");
-		GuiGraphicsExtractor reloadDraw = new GuiGraphicsExtractor();
+		GuiGraphics reloadDraw = new GuiGraphics();
 		reloaded.selected().draw(reloadDraw, 100, 80);
 		require(g.fills.equals(reloadDraw.fills), "reloaded manager emits identical fills");
 	}
@@ -470,20 +578,26 @@ public final class CrosshairScreenBehaviorTest {
 		// Scroll 65px so Inverted straddles the upper clip boundary.
 		f.screen.mouseScrolled(20, 80, 0, -2.5);
 		require(inverted.getY() < 38 && inverted.getBottom() > 38, "partially visible upper row");
-		require(f.screen.mouseClicked(new MouseButtonEvent(20, 39, new MouseButtonInfo(1, 0)), false), "upper clipped row click accepted after reveal");
+		require(f.screen.mouseClicked(new MouseButtonEvent(20, 39, new MouseButtonInfo(InputConstants.MOUSE_BUTTON_LEFT, 0)), false), "upper clipped row click accepted after reveal");
 		require(!f.config.settings().inverted(), "upper boundary click toggles once");
 		require(inverted.getY() == 38, "focus reveals upper row");
 		f.screen.mouseScrolled(20, 80, 0, 100);
-		f.screen.mouseScrolled(20, 80, 0, -0.5);
+		f.screen.mouseScrolled(20, 80, 0, -1.5);
 		AbstractWidget size = child(f.screen, 5);
-		require(size.getY() < 132 && size.getBottom() > 132, "partially visible lower row");
-		require(f.screen.mouseClicked(new MouseButtonEvent(20, 131, new MouseButtonInfo(1, 0)), false), "lower clipped row click accepted after reveal");
-		replace(f.screen, "7"); press(f.screen, InputConstants.KEY_RETURN);
-		require(f.config.settings().size() == 7, "lower boundary click starts editor");
-		require(!size.isMouseOver(20, 132) && !inverted.isMouseOver(20, 37), "clip boundary remains exclusive");
+		require(size.getY() == 97 && size.getBottom() == 123, "scroll 39 places Size across lower clip boundary 104");
+		require(child(f.screen, 10).getY() == 110 && child(f.screen, 10).getBottom() == 132,
+			"Apply remains below content clip rather than a row click target");
+		require(f.screen.mouseClicked(new MouseButtonEvent(20, 103, new MouseButtonInfo(InputConstants.MOUSE_BUTTON_LEFT, 0)), false), "lower clipped row click accepted after reveal");
+		require(f.screen.getFocused() == size && size.getY() == 78 && size.getBottom() == 104, "focus reveals lower row fully");
+		replace(f.screen, "7");
+		require(f.config.settings().size() == 4 && draw(f.screen).texts.stream().anyMatch(t -> t.value().equals("7") && t.y() == 86),
+			"lower boundary click starts editor without committing text");
+		press(f.screen, InputConstants.KEY_RETURN);
+		require(f.config.settings().size() == 7, "lower boundary editor commits Size");
+		require(!size.isMouseOver(20, 104) && !inverted.isMouseOver(20, 37), "clip boundary remains exclusive");
 		f.screen.setFocused(child(f.screen, 3)); press(f.screen, InputConstants.KEY_RIGHT);
 		AbstractWidget thickness = child(f.screen, 6);
-		require(!thickness.active && !thickness.mouseClicked(new MouseButtonEvent(20, thickness.getY() + 10, new MouseButtonInfo(1, 0)), false), "irrelevant row rejects mouse");
+		require(!thickness.active && !thickness.mouseClicked(new MouseButtonEvent(20, thickness.getY() + 10, new MouseButtonInfo(InputConstants.MOUSE_BUTTON_LEFT, 0)), false), "irrelevant row rejects mouse");
 	}
 
 	private static void numeric() {

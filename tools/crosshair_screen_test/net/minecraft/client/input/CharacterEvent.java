@@ -1,5 +1,4 @@
 package net.minecraft.client.input;
 
-public record CharacterEvent(int codepoint) {
-	public String codepointAsString() { return new String(Character.toChars(codepoint)); }
-}
+/** Minecraft 1.21.11 character event includes modifier state. */
+public record CharacterEvent(int codepoint, int modifiers) {}

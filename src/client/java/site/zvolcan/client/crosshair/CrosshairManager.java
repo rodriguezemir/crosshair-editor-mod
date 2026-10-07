@@ -4,7 +4,7 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 
 /** In-memory client registry with exact, case-sensitive names and insertion order. */
 public final class CrosshairManager {
@@ -48,7 +48,7 @@ public final class CrosshairManager {
 	}
 
 	/** Draws the current selection, or does nothing while the registry is empty. */
-	public void draw(GuiGraphicsExtractor context, int centerX, int centerY) {
+	public void draw(GuiGraphics context, int centerX, int centerY) {
 		Crosshair selected = selected();
 		if (selected != null) {
 			selected.draw(context, centerX, centerY);

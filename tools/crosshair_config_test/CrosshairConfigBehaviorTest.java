@@ -1,6 +1,6 @@
 import java.util.HashSet;
 import java.util.Set;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.RenderPipelines;
 import site.zvolcan.client.config.CrosshairSettings;
 import site.zvolcan.client.config.CrosshairSettings.Type;
@@ -180,7 +180,7 @@ public final class CrosshairConfigBehaviorTest {
 					check(crosshair.color() == expectedColor, "pipeline-specific opacity/RGB");
 					check(crosshair.pipeline() == (inverted ? RenderPipelines.GUI_INVERT : RenderPipelines.GUI),
 						"real pipeline constants selected");
-					GuiGraphicsExtractor context = new GuiGraphicsExtractor();
+					GuiGraphics context = new GuiGraphics();
 					crosshair.draw(context, 12, -7);
 					check(context.fills.size() == crosshair.points().size(), "every span reaches fill boundary");
 					check(opacity == 0 ? context.fills.isEmpty() : !context.fills.isEmpty(),
@@ -208,7 +208,7 @@ public final class CrosshairConfigBehaviorTest {
 				Crosshair crosshair = CrosshairPresets.create(settings);
 				check(crosshair.points().isEmpty(), "transparent preset has no rectangles: " + settings);
 				expect(UnsupportedOperationException.class, () -> crosshair.points().add(new Point(0, 0, 1, 1)));
-				GuiGraphicsExtractor context = new GuiGraphicsExtractor();
+				GuiGraphics context = new GuiGraphics();
 				crosshair.draw(context, 12, -7);
 				check(context.fills.isEmpty(), "transparent preset submits no fills for either pipeline");
 			}

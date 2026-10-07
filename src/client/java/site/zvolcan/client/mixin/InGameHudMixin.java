@@ -1,26 +1,26 @@
 package site.zvolcan.client.mixin;
 
-import com.mojang.renderpearl.api.pipeline.RenderPipeline;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.Hud;
+import com.mojang.blaze3d.pipeline.RenderPipeline;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.Gui;
 import net.minecraft.resources.Identifier;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
 import site.zvolcan.client.CrosshairEditorClient;
 
-@Mixin(Hud.class)
+@Mixin(Gui.class)
 public abstract class InGameHudMixin {
 	@Redirect(
-		method = "extractCrosshair(Lnet/minecraft/client/gui/GuiGraphicsExtractor;Lnet/minecraft/client/DeltaTracker;)V",
+		method = "renderCrosshair(Lnet/minecraft/client/gui/GuiGraphics;Lnet/minecraft/client/DeltaTracker;)V",
 		at = @At(
 			value = "INVOKE",
-			target = "Lnet/minecraft/client/gui/GuiGraphicsExtractor;blitSprite(Lcom/mojang/renderpearl/api/pipeline/RenderPipeline;Lnet/minecraft/resources/Identifier;IIII)V",
+			target = "Lnet/minecraft/client/gui/GuiGraphics;blitSprite(Lcom/mojang/blaze3d/pipeline/RenderPipeline;Lnet/minecraft/resources/Identifier;IIII)V",
 			ordinal = 0
 		)
 	)
 	private void drawCustomCrosshair(
-		GuiGraphicsExtractor context,
+		GuiGraphics context,
 		RenderPipeline pipeline,
 		Identifier sprite,
 		int x,

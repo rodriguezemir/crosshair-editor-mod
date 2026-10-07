@@ -1,7 +1,7 @@
 package site.zvolcan.client;
 
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
-import net.fabricmc.fabric.api.client.command.v2.ClientCommands;
+import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 
@@ -15,7 +15,7 @@ public final class CrosshairCommands {
 		if (registered) return;
 		registered = true;
 		ClientCommandRegistrationCallback.EVENT.register((dispatcher, context) ->
-			dispatcher.register(ClientCommands.literal("crosshaireditor").executes(command -> {
+			dispatcher.register(ClientCommandManager.literal("crosshaireditor").executes(command -> {
 				Minecraft client = command.getSource().getClient();
 				if (client == null || client.level == null) {
 					command.getSource().sendError(Component.literal("Open a world before using /crosshaireditor."));

@@ -1,9 +1,9 @@
 package site.zvolcan.client.crosshair;
 
-import com.mojang.renderpearl.api.pipeline.RenderPipeline;
+import com.mojang.blaze3d.pipeline.RenderPipeline;
 import java.util.List;
 import java.util.Objects;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 
 /** Immutable client drawing data; rectangles are relative to the supplied center. */
 public final class Crosshair {
@@ -40,12 +40,12 @@ public final class Crosshair {
 	}
 
 	/** Emits fills in point-list order using the configured pipeline (including GUI_INVERT). */
-	public void draw(GuiGraphicsExtractor context, int centerX, int centerY) {
+	public void draw(GuiGraphics context, int centerX, int centerY) {
 		draw(context, centerX, centerY, 1);
 	}
 
 	/** Same as draw, but each rectangle extent is multiplied by the integer scale. */
-	public void draw(GuiGraphicsExtractor context, int centerX, int centerY, int scale) {
+	public void draw(GuiGraphics context, int centerX, int centerY, int scale) {
 		Objects.requireNonNull(context, "context");
 		for (Point point : points) {
 			context.fill(pipeline,

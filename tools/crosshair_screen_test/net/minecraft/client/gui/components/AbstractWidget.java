@@ -1,6 +1,6 @@
 package net.minecraft.client.gui.components;
 
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.client.input.MouseButtonEvent;
@@ -30,15 +30,15 @@ public abstract class AbstractWidget implements GuiEventListener {
 		return active && visible && mx >= x && mx < getRight() && my >= y && my < getBottom();
 	}
 	public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
-		if (event.button() != 1 || !isMouseOver(event.x(), event.y())) return false;
+		if (event.button() != 0 || !isMouseOver(event.x(), event.y())) return false;
 		onClick(event, doubleClick);
 		return true;
 	}
 	public void onClick(MouseButtonEvent event, boolean doubleClick) {}
-	public final void extractRenderState(GuiGraphicsExtractor graphics, int mx, int my, float delta) {
-		if (visible) extractWidgetRenderState(graphics, mx, my, delta);
+	public final void render(GuiGraphics graphics, int mx, int my, float delta) {
+		if (visible) renderWidget(graphics, mx, my, delta);
 	}
-	protected abstract void extractWidgetRenderState(GuiGraphicsExtractor graphics, int mx, int my, float delta);
+	protected abstract void renderWidget(GuiGraphics graphics, int mx, int my, float delta);
 	public final void updateNarration(NarrationElementOutput output) { updateWidgetNarration(output); }
 	protected abstract void updateWidgetNarration(NarrationElementOutput output);
 }

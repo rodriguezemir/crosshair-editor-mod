@@ -4,8 +4,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.GuiGraphicsExtractor.Fill;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphics.Fill;
 import net.minecraft.client.renderer.RenderPipelines;
 import site.zvolcan.client.CrosshairEditorClient;
 import site.zvolcan.client.crosshair.Crosshair;
@@ -70,7 +70,7 @@ public final class CrosshairManagerBehaviorTest {
 		manager.register("second", second);
 		check(manager.selected() == first, "replacement of unselected key does not change selection");
 		manager.select("second");
-		GuiGraphicsExtractor context = new GuiGraphicsExtractor();
+		GuiGraphics context = new GuiGraphics();
 		manager.draw(context, 0, 0);
 		check(context.fills.equals(List.of(new Fill(RenderPipelines.GUI, -3, -2, 2, 4, 0xFFABCDEF))),
 			"manager draws selected object, not first registration");
@@ -121,7 +121,7 @@ public final class CrosshairManagerBehaviorTest {
 			List.of(RECTANGLE, new Point(4, 5, 9, 7)), RenderPipelines.GUI_INVERT, 0x7F123456);
 		check(crosshair.pipeline() == RenderPipelines.GUI_INVERT, "pipeline accessor");
 		check(crosshair.color() == 0x7F123456, "ARGB accessor preserves alpha");
-		GuiGraphicsExtractor context = new GuiGraphicsExtractor();
+		GuiGraphics context = new GuiGraphics();
 		crosshair.draw(context, 12, -7);
 		check(context.fills.equals(List.of(
 			new Fill(RenderPipelines.GUI_INVERT, 9, -9, 14, -3, 0x7F123456),
@@ -130,7 +130,7 @@ public final class CrosshairManagerBehaviorTest {
 	}
 
 	private static void empty() {
-		GuiGraphicsExtractor context = new GuiGraphicsExtractor();
+		GuiGraphics context = new GuiGraphics();
 		new CrosshairManager().draw(context, 12, -7);
 		new Crosshair(List.of(), RenderPipelines.GUI, 0).draw(context, 12, -7);
 		check(context.fills.isEmpty(), "empty manager and model issue no fills");
@@ -149,7 +149,7 @@ public final class CrosshairManagerBehaviorTest {
 			"default preserves original rectangles and order");
 
 		manager.select("default");
-		GuiGraphicsExtractor context = new GuiGraphicsExtractor();
+		GuiGraphics context = new GuiGraphics();
 		manager.draw(context, 12, -7);
 		check(context.fills.size() == 3, "named original default emits three fills");
 		Set<List<Integer>> actual = new HashSet<>();
@@ -180,7 +180,7 @@ public final class CrosshairManagerBehaviorTest {
 		new CrosshairEditorClient().onInitializeClient();
 		check(manager.selected() == manager.get("configured"), "initializer selects loaded configured preset");
 		manager.select("alternate");
-		GuiGraphicsExtractor context = new GuiGraphicsExtractor();
+		GuiGraphics context = new GuiGraphics();
 		CrosshairEditorClient.getCrosshairManager().draw(context, 12, -7);
 		check(context.fills.equals(List.of(new Fill(RenderPipelines.GUI, 10, -8, 15, -5, 0x8044CC22))),
 			"shared manager routes selected alternate geometry, pipeline and ARGB");

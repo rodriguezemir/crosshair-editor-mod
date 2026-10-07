@@ -3,7 +3,7 @@ import com.google.gson.JsonParser;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.blaze3d.platform.InputConstants;
-import com.mojang.renderpearl.api.pipeline.RenderPipeline;
+import com.mojang.blaze3d.pipeline.RenderPipeline;
 import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -12,12 +12,12 @@ import java.util.List;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
+import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.Hud;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.resources.Identifier;
@@ -67,14 +67,14 @@ public final class CrosshairWiringBehaviorTest {
 		return CrosshairEditorClient.getConfiguration();
 	}
 	private static Method redirect() throws Exception {
-		Method method = InGameHudMixin.class.getDeclaredMethod("drawCustomCrosshair", GuiGraphicsExtractor.class,
+		Method method = InGameHudMixin.class.getDeclaredMethod("drawCustomCrosshair", GuiGraphics.class,
 			RenderPipeline.class, Identifier.class, int.class, int.class, int.class, int.class);
 		method.setAccessible(true);
 		return method;
 	}
-	private static GuiGraphicsExtractor draw(RenderPipeline pipeline, Identifier sprite,
+	private static GuiGraphics draw(RenderPipeline pipeline, Identifier sprite,
 		int x, int y, int width, int height) throws Exception {
-		GuiGraphicsExtractor graphics = new GuiGraphicsExtractor();
+		GuiGraphics graphics = new GuiGraphics();
 		redirect().invoke(new MixinInstance(), graphics, pipeline, sprite, x, y, width, height);
 		return graphics;
 	}
@@ -103,7 +103,7 @@ public final class CrosshairWiringBehaviorTest {
 		new CrosshairEditorClient().onInitializeClient();
 		check(config == CrosshairEditorClient.getConfiguration() && originalDefault == manager.get("default"), "repeat init preserves both objects");
 		check(manager.selected() == CUSTOM, "repeat init preserves programmatic selection");
-		check(KeyMappingHelper.registered.size() == 1 && ClientTickEvents.END_CLIENT_TICK.callbacks.size() == 1, "repeat init does not register twice");
+		check(KeyBindingHelper.registered.size() == 1 && ClientTickEvents.END_CLIENT_TICK.callbacks.size() == 1, "repeat init does not register twice");
 		check(Files.readString(file()).equals(original), "startup and repeat init do not rewrite loaded file");
 	}
 
@@ -121,8 +121,8 @@ public final class CrosshairWiringBehaviorTest {
 	private static void preinit() throws Exception {
 		check(CrosshairEditorClient.getConfiguration() == null && CrosshairEditorClient.isCustomCrosshairEnabled(), "safe explicit preinit policy");
 		CrosshairEditorClient.getCrosshairManager().register("external", CUSTOM);
-		GuiGraphicsExtractor g = draw(RenderPipelines.GUI_INVERT, SPRITE, 10, -20, 13, 9);
-		check(g.blits.isEmpty() && g.fills.equals(List.of(new GuiGraphicsExtractor.Fill(RenderPipelines.GUI, 14, -17, 19, -14, 0x8044CC22))),
+		GuiGraphics g = draw(RenderPipelines.GUI_INVERT, SPRITE, 10, -20, 13, 9);
+		check(g.blits.isEmpty() && g.fills.equals(List.of(new GuiGraphics.Fill(RenderPipelines.GUI, 14, -17, 19, -14, 0x8044CC22))),
 			"preinit preserves manager drawing without configuration null crash");
 	}
 
@@ -134,9 +134,9 @@ public final class CrosshairWiringBehaviorTest {
 		RenderPipeline incoming = new RenderPipeline();
 		Identifier sprite = Identifier.fromNamespaceAndPath("example", "custom_sprite");
 		for (int[] rect : new int[][] {{10, -20, 13, 9}, {-3, 7, 8, 14}, {0, 0, 0, 0}}) {
-			GuiGraphicsExtractor g = draw(incoming, sprite, rect[0], rect[1], rect[2], rect[3]);
+			GuiGraphics g = draw(incoming, sprite, rect[0], rect[1], rect[2], rect[3]);
 			check(g.fills.isEmpty(), "disabled emits no custom fills");
-			check(g.blits.equals(List.of(new GuiGraphicsExtractor.Blit(incoming, sprite, rect[0], rect[1], rect[2], rect[3]))),
+			check(g.blits.equals(List.of(new GuiGraphics.Blit(incoming, sprite, rect[0], rect[1], rect[2], rect[3]))),
 				"forward pipeline/sprite/position/extents unchanged exactly once");
 			check(g.blits.getFirst().pipeline() == incoming && g.blits.getFirst().sprite() == sprite, "retain original identities");
 		}
@@ -147,20 +147,20 @@ public final class CrosshairWiringBehaviorTest {
 		check(!Files.exists(file()) && !config.saved(), "missing file startup does not write unsaved defaults");
 		CrosshairManager manager = CrosshairEditorClient.getCrosshairManager();
 		manager.register("external", CUSTOM); manager.select("external");
-		GuiGraphicsExtractor g = draw(RenderPipelines.GUI_INVERT, SPRITE, 10, -20, 13, 9);
+		GuiGraphics g = draw(RenderPipelines.GUI_INVERT, SPRITE, 10, -20, 13, 9);
 		check(g.blits.isEmpty(), "enabled does not also emit vanilla sprite");
-		check(g.fills.equals(List.of(new GuiGraphicsExtractor.Fill(RenderPipelines.GUI, 14, -17, 19, -14, 0x8044CC22))),
+		check(g.fills.equals(List.of(new GuiGraphics.Fill(RenderPipelines.GUI, 14, -17, 19, -14, 0x8044CC22))),
 			"uses selected programmatic object with vanilla center");
 		config.update(config.settings().withType(CrosshairSettings.Type.DOT).withSize(1).withInverted(false).withRgb(0x123456));
 		check(manager.selected() == manager.get("configured"), "config edit reselects configured");
 		g = draw(RenderPipelines.GUI_INVERT, SPRITE, 10, -20, 13, 9);
-		check(g.blits.isEmpty() && g.fills.equals(List.of(new GuiGraphicsExtractor.Fill(RenderPipelines.GUI, 16, -16, 17, -15, 0xFF123456))),
+		check(g.blits.isEmpty() && g.fills.equals(List.of(new GuiGraphics.Fill(RenderPipelines.GUI, 16, -16, 17, -15, 0xFF123456))),
 			"subsequent HUD draws live configured edit");
 	}
 
 	private static void tick() {
 		CrosshairKeyMappings.register();
-		KeyMapping key = KeyMappingHelper.registered.getFirst();
+		KeyMapping key = KeyBindingHelper.registered.getFirst();
 		Minecraft client = new Minecraft(); client.level = new Object();
 		key.queueClicks(2); ClientTickEvents.END_CLIENT_TICK.fire(client);
 		check(client.openings == 0 && !key.consumeClick(), "preinit clicks drained safely");
@@ -170,37 +170,39 @@ public final class CrosshairWiringBehaviorTest {
 		client.level = null; key.queueClicks(2); ClientTickEvents.END_CLIENT_TICK.fire(client);
 		check(client.openings == 0 && !key.consumeClick(), "no world does not open; clicks drained");
 		client.level = new Object();
-		Screen typing = new Screen(); client.gui.setScreen(typing);
+		Screen typing = new Screen(); client.screen = typing;
 		key.queueClicks(3); ClientTickEvents.END_CLIENT_TICK.fire(client);
-		check(client.gui.screen() == typing && client.openings == 0 && !key.consumeClick(), "typing/other menus preserved");
-		client.gui.setScreen(null); ClientTickEvents.END_CLIENT_TICK.fire(client);
+		check(client.screen == typing && client.openings == 0 && !key.consumeClick(), "typing/other menus preserved");
+		client.screen = null; ClientTickEvents.END_CLIENT_TICK.fire(client);
 		check(client.openings == 0, "menu clicks do not open later");
 		config.update(config.settings().withEnabled(false));
 		key.queueClicks(4); ClientTickEvents.END_CLIENT_TICK.fire(client);
 		check(client.openings == 1 && !key.consumeClick(), "queued clicks open once and all drained, even when custom crosshair disabled");
-		check(client.gui.screen() instanceof CrosshairConfigScreen, "native config screen opened");
-		CrosshairConfigScreen screen = (CrosshairConfigScreen) client.gui.screen();
+		check(client.screen instanceof CrosshairConfigScreen, "native config screen opened");
+		CrosshairConfigScreen screen = (CrosshairConfigScreen) client.screen;
 		check(screen.previous == null && screen.configuration == config, "same live configuration and nullable previous");
 		key.queueClicks(2); ClientTickEvents.END_CLIENT_TICK.fire(client);
-		check(client.gui.screen() == screen && client.openings == 1 && !key.consumeClick(), "open screen not replaced");
-		client.gui.setScreen(null); ClientTickEvents.END_CLIENT_TICK.fire(client);
+		check(client.screen == screen && client.openings == 1 && !key.consumeClick(), "open screen not replaced");
+		client.screen = null; ClientTickEvents.END_CLIENT_TICK.fire(client);
 		check(client.openings == 1, "closing does not replay consumed clicks");
 		key.queueClicks(1); ClientTickEvents.END_CLIENT_TICK.fire(client);
-		check(client.openings == 2 && ((CrosshairConfigScreen) client.gui.screen()).configuration == config, "reopen shares single state");
+		check(client.openings == 2 && ((CrosshairConfigScreen) client.screen).configuration == config, "reopen shares single state");
 	}
 
 	private static void key(Path language) throws Exception {
 		CrosshairKeyMappings.register(); CrosshairKeyMappings.register(); initialize();
-		check(KeyMappingHelper.registered.size() == 1 && KeyMapping.Category.registered.size() == 1
+		check(KeyBindingHelper.registered.size() == 1 && KeyMapping.Category.registered.size() == 1
 			&& ClientTickEvents.END_CLIENT_TICK.callbacks.size() == 1, "category/key/tick registration idempotent");
-		KeyMapping key = KeyMappingHelper.registered.getFirst();
-		check(key.getDefaultKey().getValue() == InputConstants.UNKNOWN.getValue(), "unbound native UNKNOWN default");
+		KeyMapping key = KeyBindingHelper.registered.getFirst();
+		check(key.getDefaultKey().getValue() == InputConstants.KEY_BACKSLASH
+			&& key.getDefaultKey().getValue() == 92, "native backslash default");
 		key.setKey(new InputConstants.Key(79));
-		check(key.boundKey().getValue() == 79 && key.getDefaultKey().getValue() == -1, "native mapping remains remappable");
+		check(key.boundKey().getValue() == 79 && key.getDefaultKey().getValue() == 92,
+			"native mapping remains remappable without changing its default");
 		JsonObject labels = JsonParser.parseString(Files.readString(language)).getAsJsonObject();
 		check(labels.get(key.getName()).getAsString().equals("Open crosshair configuration"), "actual binding name localized");
 		check(key.getCategory().id().namespace().equals("crosshaireditor"), "namespaced native category");
-		check(labels.get(key.getCategory().labelKey()).getAsString().equals("Crosshair Editor"), "verified 26.3 category translation scheme");
+		check(labels.get(key.getCategory().labelKey()).getAsString().equals("Crosshair Editor"), "verified 1.21.11 category translation scheme");
 	}
 
 	private record Source(Minecraft getClient, List<String> errors) implements FabricClientCommandSource {
@@ -239,16 +241,16 @@ public final class CrosshairWiringBehaviorTest {
 		CommandDispatcher<FabricClientCommandSource> dispatcher = dispatcher();
 		Minecraft client = new Minecraft(); client.level = new Object();
 		Source source = new Source(client);
-		Screen chat = new Screen(); client.gui.setScreen(chat);
+		Screen chat = new Screen(); client.screen = chat;
 		check(dispatcher.execute("crosshaireditor", source) == 1, "client command succeeds without permissions");
-		check(client.gui.screen() == chat && client.openings == 0, "dispatch only queues, never replaces chat synchronously");
-		client.gui.setScreen(null); // Simulated native chat submit closes its own screen after dispatch.
+		check(client.screen == chat && client.openings == 0, "dispatch only queues, never replaces chat synchronously");
+		client.screen = null; // Simulated native chat submit closes its own screen after dispatch.
 		ClientTickEvents.END_CLIENT_TICK.fire(client);
-		check(client.openings == 1 && client.gui.screen() instanceof CrosshairConfigScreen, "next tick survives chat closure");
-		CrosshairConfigScreen screen = (CrosshairConfigScreen) client.gui.screen();
+		check(client.openings == 1 && client.screen instanceof CrosshairConfigScreen, "next tick survives chat closure");
+		CrosshairConfigScreen screen = (CrosshairConfigScreen) client.screen;
 		check(screen.configuration == config && screen.previous == null, "shared disabled settings, return to game not chat");
 		check(source.errors.isEmpty() && !CrosshairEditorClient.isCustomCrosshairEnabled(), "disabled remains disabled without command errors");
-		client.gui.setScreen(null); ClientTickEvents.END_CLIENT_TICK.fire(client);
+		client.screen = null; ClientTickEvents.END_CLIENT_TICK.fire(client);
 		check(client.openings == 1, "closing config does not replay command");
 	}
 
@@ -257,20 +259,20 @@ public final class CrosshairWiringBehaviorTest {
 		CommandDispatcher<FabricClientCommandSource> dispatcher = dispatcher();
 		Minecraft client = new Minecraft(); client.level = new Object();
 		Source source = new Source(client);
-		KeyMapping key = KeyMappingHelper.registered.getFirst();
+		KeyMapping key = KeyBindingHelper.registered.getFirst();
 		for (int i = 0; i < 3; i++) check(dispatcher.execute("crosshaireditor", source) == 1, "repeat command queued");
 		key.queueClicks(3); ClientTickEvents.END_CLIENT_TICK.fire(client);
 		check(client.openings == 1 && !key.consumeClick(), "duplicate command and key requests coalesce and drain");
-		Screen configScreen = client.gui.screen();
+		Screen configScreen = client.screen;
 		dispatcher.execute("crosshaireditor", source); ClientTickEvents.END_CLIENT_TICK.fire(client);
-		check(client.gui.screen() == configScreen && client.openings == 1, "existing config never replaced");
-		client.gui.setScreen(null); ClientTickEvents.END_CLIENT_TICK.fire(client);
+		check(client.screen == configScreen && client.openings == 1, "existing config never replaced");
+		client.screen = null; ClientTickEvents.END_CLIENT_TICK.fire(client);
 		check(client.openings == 1, "request made with config open never replays");
 		dispatcher.execute("crosshaireditor", source);
-		Screen menu = new Screen(); client.gui.setScreen(menu);
+		Screen menu = new Screen(); client.screen = menu;
 		key.queueClicks(2); ClientTickEvents.END_CLIENT_TICK.fire(client);
-		check(client.gui.screen() == menu && client.openings == 1 && !key.consumeClick(), "intervening menu preserved and all requests discarded");
-		client.gui.setScreen(null); ClientTickEvents.END_CLIENT_TICK.fire(client);
+		check(client.screen == menu && client.openings == 1 && !key.consumeClick(), "intervening menu preserved and all requests discarded");
+		client.screen = null; ClientTickEvents.END_CLIENT_TICK.fire(client);
 		check(client.openings == 1, "menu-discarded command never opens later");
 		dispatcher.execute("crosshaireditor", source); client.level = null;
 		ClientTickEvents.END_CLIENT_TICK.fire(client);
@@ -301,11 +303,11 @@ public final class CrosshairWiringBehaviorTest {
 	}
 
 	private static void anchor() throws Exception {
-		check(InGameHudMixin.class.getAnnotation(Mixin.class).value()[0] == Hud.class, "same HUD annotation target");
+		check(InGameHudMixin.class.getAnnotation(Mixin.class).value()[0] == Gui.class, "Minecraft 1.21.11 GUI HUD annotation target");
 		Redirect annotation = redirect().getAnnotation(Redirect.class);
-		check(annotation.method().equals("extractCrosshair(Lnet/minecraft/client/gui/GuiGraphicsExtractor;Lnet/minecraft/client/DeltaTracker;)V"), "exact enclosing descriptor");
+		check(annotation.method().equals("renderCrosshair(Lnet/minecraft/client/gui/GuiGraphics;Lnet/minecraft/client/DeltaTracker;)V"), "exact enclosing descriptor");
 		check(annotation.at().value().equals("INVOKE") && annotation.at().ordinal() == 0, "original invoke anchor ordinal");
-		check(annotation.at().target().equals("Lnet/minecraft/client/gui/GuiGraphicsExtractor;blitSprite(Lcom/mojang/renderpearl/api/pipeline/RenderPipeline;Lnet/minecraft/resources/Identifier;IIII)V"),
+		check(annotation.at().target().equals("Lnet/minecraft/client/gui/GuiGraphics;blitSprite(Lcom/mojang/blaze3d/pipeline/RenderPipeline;Lnet/minecraft/resources/Identifier;IIII)V"),
 			"exact original sprite-call target descriptor");
 	}
 }

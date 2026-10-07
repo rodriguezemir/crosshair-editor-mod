@@ -1,10 +1,10 @@
 package com.mojang.blaze3d.platform;
 
-/** 26.3 SDL scancodes and mouse indices, not legacy GLFW values. */
+/** Minecraft 1.21.11 GLFW keys, mouse buttons and modifier masks. */
 public final class InputConstants {
-	public static final int KEY_A = 4, KEY_RETURN = 40, KEY_ESCAPE = 41, KEY_BACKSPACE = 42;
-	public static final int KEY_TAB = 43, KEY_SPACE = 44, KEY_DELETE = 76;
-	public static final int KEY_RIGHT = 79, KEY_LEFT = 80, KEY_DOWN = 81, KEY_UP = 82;
-	public static final int KEY_HOME = 74, KEY_END = 77, KEY_NUMPADENTER = 88;
-	public static final int MOUSE_BUTTON_LEFT = 1, MOD_SHIFT = 3, MOD_CONTROL = 192;
+	public static final int KEY_A = 65, KEY_RETURN = 257, KEY_ESCAPE = 256, KEY_BACKSPACE = 259;
+	public static final int KEY_TAB = 258, KEY_SPACE = 32, KEY_DELETE = 261;
+	public static final int KEY_RIGHT = 262, KEY_LEFT = 263, KEY_DOWN = 264, KEY_UP = 265;
+	public static final int KEY_HOME = 268, KEY_END = 269, KEY_NUMPADENTER = 335;
+	public static final int MOUSE_BUTTON_LEFT = 0, MOD_SHIFT = 1, MOD_CONTROL = 2;
 }

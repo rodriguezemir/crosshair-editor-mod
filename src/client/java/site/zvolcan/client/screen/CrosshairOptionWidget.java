@@ -4,7 +4,7 @@ import com.mojang.blaze3d.platform.InputConstants;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.narration.NarratedElementType;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
@@ -16,7 +16,7 @@ import site.zvolcan.client.config.CrosshairConfiguration;
 import site.zvolcan.client.config.CrosshairSettings;
 import site.zvolcan.client.config.CrosshairSettings.Type;
 
-/** Native focus/narration boundary with intentionally plain pixel-art extraction. */
+/** Native focus/narration boundary with intentionally plain pixel-art rendering. */
 public final class CrosshairOptionWidget extends AbstractWidget {
 	/** Centralized English UI vocabulary, ready for the later translation integration. */
 	public enum Field {
@@ -272,12 +272,12 @@ public final class CrosshairOptionWidget extends AbstractWidget {
 	}
 
 	@Override
-	protected void extractWidgetRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
+	protected void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float delta) {
 		if (getBottom() <= clipTop || getY() >= clipBottom) return;
 		if (tab) {
 			graphics.fill(getX(), getY(), getRight(), getBottom(), Palette.PANEL);
 			String label = font.plainSubstrByWidth(getMessage().getString(), Math.max(0, width - 8));
-			graphics.text(font, label, getX() + (width - font.width(label)) / 2,
+			graphics.drawString(font, label, getX() + (width - font.width(label)) / 2,
 				getY() + (height - font.lineHeight) / 2, Palette.TEXT, false);
 			if (selected.getAsBoolean()) {
 				graphics.fill(getX(), getBottom() - 1, getRight(), getBottom(), Palette.FOCUS);
@@ -291,13 +291,13 @@ public final class CrosshairOptionWidget extends AbstractWidget {
 		int y = getY() + (height - font.lineHeight) / 2;
 		int color = active ? Palette.TEXT : Palette.INACTIVE;
 		String label = font.plainSubstrByWidth(getMessage().getString(), Math.max(0, width - 92));
-		graphics.text(font, label, getX() + 12, y, color, false);
+		graphics.drawString(font, label, getX() + 12, y, color, false);
 		if (field != null && field.checkbox()) {
 			boolean on = intValue() == 1;
 			int x = right - 16;
 			int boxY = getY() + 5;
 			String state = valueText();
-			graphics.text(font, state, x - 8 - font.width(state), y, Palette.TEXT, false);
+			graphics.drawString(font, state, x - 8 - font.width(state), y, Palette.TEXT, false);
 			graphics.fill(x, boxY, right, boxY + 16, on ? Palette.ON_BORDER : Palette.OFF_BORDER);
 			graphics.fill(x + 3, boxY + 3, right - 3, boxY + 13, on ? Palette.ON_INSIDE : Palette.OFF_INSIDE);
 			if (isFocused()) graphics.fill(x, boxY + 18, right, boxY + 19, Palette.FOCUS);
@@ -305,7 +305,7 @@ public final class CrosshairOptionWidget extends AbstractWidget {
 		}
 		String value = valueText();
 		int x = right - font.width(value);
-		graphics.text(font, value, x, y, color, false);
+		graphics.drawString(font, value, x, y, color, false);
 		if (isFocused()) graphics.fill(Math.min(x, right - 16), getBottom() - 3, right, getBottom() - 2, Palette.FOCUS);
 		if (editor != null) {
 			int caretX = x + font.width(value.substring(0, editor.caret()));

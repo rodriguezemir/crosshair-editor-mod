@@ -4,7 +4,7 @@ import com.mojang.blaze3d.platform.InputConstants;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.narration.NarratedElementType;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
@@ -206,23 +206,18 @@ public final class CrosshairConfigScreen extends Screen {
 		super.removed();
 	}
 
-    /*@Override
-	public void extractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
-		graphics.fill(0, 0, width, height, Palette.BACKGROUND);
-	}*/
-
 	@Override
-	public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
+	public void render(GuiGraphics graphics, int mouseX, int mouseY, float delta) {
 		refreshRelevance();
-		//extractBackground(graphics, mouseX, mouseY, delta);
-		for (CrosshairOptionWidget tab : tabs) tab.extractRenderState(graphics, mouseX, mouseY, delta);
-		for (CrosshairOptionWidget button : buttons) button.extractRenderState(graphics, mouseX, mouseY, delta);
+		// Preserve the overlay: do not render a fullscreen background or blur.
+		for (CrosshairOptionWidget tab : tabs) tab.render(graphics, mouseX, mouseY, delta);
+		for (CrosshairOptionWidget button : buttons) button.render(graphics, mouseX, mouseY, delta);
 		graphics.enableScissor(layout.left(), layout.top(), layout.left() + layout.panelWidth(), layout.bottom());
 		for (int panel = 0; panel < layout.panelCount(); panel++) {
 			int y = layout.panelY(panel, scroll);
 			graphics.fill(layout.left(), y, layout.left() + layout.panelWidth(), y + layout.panelHeight(panel), Palette.PANEL);
 		}
-		for (CrosshairOptionWidget widget : rows) widget.extractRenderState(graphics, mouseX, mouseY, delta);
+		for (CrosshairOptionWidget widget : rows) widget.render(graphics, mouseX, mouseY, delta);
 		graphics.disableScissor();
 		if (!configuration.settings().equals(previewSettings)) {
 			previewSettings = configuration.settings();
@@ -236,9 +231,9 @@ public final class CrosshairConfigScreen extends Screen {
 			preview.draw(graphics, layout.previewCenterX(), layout.previewCenterY(), 4);
 			graphics.disableScissor();
 		}
-		graphics.text(font, status(), layout.left(), height - 24, Palette.TEXT, false);
+		graphics.drawString(font, status(), layout.left(), height - 24, Palette.TEXT, false);
 		String hint = footerHint();
-		graphics.text(font, font.plainSubstrByWidth(hint, Math.max(0, width - 16)),
+		graphics.drawString(font, font.plainSubstrByWidth(hint, Math.max(0, width - 16)),
 			layout.left(), height - 12, Palette.MUTED, false);
 		if (!configuration.warning().isEmpty() && mouseY >= height - 28) {
 			graphics.setTooltipForNextFrame(font, Component.literal(configuration.warning()), mouseX, mouseY);

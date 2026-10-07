@@ -33,14 +33,15 @@ class CrosshairManagerTests(unittest.TestCase):
         cls.classes.mkdir(parents=True, exist_ok=True)
         cls.classpath = os.pathsep.join((str(cls.classes), str(resolved_gson())))
         command = [
-            java_tool("javac"), "--release", "25", "-cp", cls.classpath, "-d", str(cls.classes),
+            java_tool("javac"), "--release", "21", "-cp", cls.classpath, "-d", str(cls.classes),
             str(SOURCES / "Crosshair.java"),
             str(SOURCES / "CrosshairManager.java"),
             str(SOURCES / "CrosshairPresets.java"),
             *(str(SOURCES.parent / "config" / name) for name in
               ("CrosshairSettings.java", "CrosshairSettingsStore.java", "CrosshairConfiguration.java")),
             str(SOURCES.parent / "CrosshairEditorClient.java"),
-            *(str(path) for path in sorted(FIXTURES.rglob("*.java"))),
+            *(str(path) for path in sorted(FIXTURES.rglob("*.java"))
+              if path.name != "GuiGraphicsExtractor.java" and "renderpearl" not in path.parts),
         ]
         result = subprocess.run(command, capture_output=True, text=True, timeout=60)
         if result.returncode:

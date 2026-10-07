@@ -29,12 +29,12 @@ class CrosshairScreenTests(unittest.TestCase):
               ("CrosshairSettings.java", "CrosshairSettingsStore.java", "CrosshairConfiguration.java")),
             *(CLIENT / "crosshair" / name for name in
               ("Crosshair.java", "CrosshairManager.java", "CrosshairPresets.java")),
-            *BOUNDARY.rglob("*.java"),
-            old_boundary / "com/mojang/renderpearl/api/pipeline/RenderPipeline.java",
+            *(path for path in BOUNDARY.rglob("*.java") if path.name != "GuiGraphicsExtractor.java"),
+            old_boundary / "com/mojang/blaze3d/pipeline/RenderPipeline.java",
             old_boundary / "net/minecraft/client/renderer/RenderPipelines.java",
         ]
         result = subprocess.run(
-            [java_tool("javac"), "--release", "25", "-cp", cls.classpath,
+            [java_tool("javac"), "--release", "21", "-cp", cls.classpath,
              "-d", str(cls.classes), *(str(path) for path in sources)],
             capture_output=True, text=True, timeout=60,
         )
@@ -57,8 +57,11 @@ class CrosshairScreenTests(unittest.TestCase):
     def test_value_editor_validation_selection_caret_and_delete(self):
         self.run_case("editor")
 
-    def test_native_render_palette_alignment_labelled_tabs_and_no_shadows(self):
+    def test_custom_render_palette_alignment_labelled_tabs_and_no_shadows(self):
         self.run_case("render")
+
+    def test_native_wrapper_inherited_background_before_custom_render_and_deferred_elements(self):
+        self.run_case("renderEntry")
 
     def test_mouse_keyboard_edit_commit_cancel_invalid_and_live_save(self):
         self.run_case("interaction")
