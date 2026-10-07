@@ -1,6 +1,6 @@
 package site.zvolcan.client.crosshair;
 
-import com.mojang.renderpearl.api.pipeline.RenderPipeline;
+import com.mojang.blaze3d.pipeline.RenderPipeline;
 import java.util.List;
 import java.util.Objects;
 import net.minecraft.client.gui.GuiGraphicsExtractor;

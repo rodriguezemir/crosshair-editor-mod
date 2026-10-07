@@ -3,7 +3,7 @@ import com.google.gson.JsonParser;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.blaze3d.platform.InputConstants;
-import com.mojang.renderpearl.api.pipeline.RenderPipeline;
+import com.mojang.blaze3d.pipeline.RenderPipeline;
 import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -194,13 +194,15 @@ public final class CrosshairWiringBehaviorTest {
 		check(KeyMappingHelper.registered.size() == 1 && KeyMapping.Category.registered.size() == 1
 			&& ClientTickEvents.END_CLIENT_TICK.callbacks.size() == 1, "category/key/tick registration idempotent");
 		KeyMapping key = KeyMappingHelper.registered.getFirst();
-		check(key.getDefaultKey().getValue() == InputConstants.UNKNOWN.getValue(), "unbound native UNKNOWN default");
+		check(key.getDefaultKey().getValue() == InputConstants.KEY_BACKSLASH
+			&& key.getDefaultKey().getValue() == 92, "native backslash default");
 		key.setKey(new InputConstants.Key(79));
-		check(key.boundKey().getValue() == 79 && key.getDefaultKey().getValue() == -1, "native mapping remains remappable");
+		check(key.boundKey().getValue() == 79 && key.getDefaultKey().getValue() == 92,
+			"native mapping remains remappable without changing its default");
 		JsonObject labels = JsonParser.parseString(Files.readString(language)).getAsJsonObject();
 		check(labels.get(key.getName()).getAsString().equals("Open crosshair configuration"), "actual binding name localized");
 		check(key.getCategory().id().namespace().equals("crosshaireditor"), "namespaced native category");
-		check(labels.get(key.getCategory().labelKey()).getAsString().equals("Crosshair Editor"), "verified 26.3 category translation scheme");
+		check(labels.get(key.getCategory().labelKey()).getAsString().equals("Crosshair Editor"), "verified 26.2 category translation scheme");
 	}
 
 	private record Source(Minecraft getClient, List<String> errors) implements FabricClientCommandSource {
@@ -305,7 +307,7 @@ public final class CrosshairWiringBehaviorTest {
 		Redirect annotation = redirect().getAnnotation(Redirect.class);
 		check(annotation.method().equals("extractCrosshair(Lnet/minecraft/client/gui/GuiGraphicsExtractor;Lnet/minecraft/client/DeltaTracker;)V"), "exact enclosing descriptor");
 		check(annotation.at().value().equals("INVOKE") && annotation.at().ordinal() == 0, "original invoke anchor ordinal");
-		check(annotation.at().target().equals("Lnet/minecraft/client/gui/GuiGraphicsExtractor;blitSprite(Lcom/mojang/renderpearl/api/pipeline/RenderPipeline;Lnet/minecraft/resources/Identifier;IIII)V"),
+		check(annotation.at().target().equals("Lnet/minecraft/client/gui/GuiGraphicsExtractor;blitSprite(Lcom/mojang/blaze3d/pipeline/RenderPipeline;Lnet/minecraft/resources/Identifier;IIII)V"),
 			"exact original sprite-call target descriptor");
 	}
 }

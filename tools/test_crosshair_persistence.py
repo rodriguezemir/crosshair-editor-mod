@@ -15,9 +15,16 @@ CLIENT = ROOT / "src/client/java/site/zvolcan/client"
 STUBS = ROOT / "tools/crosshair_manager_test"
 
 
+def minecraft_metadata(cache):
+    properties = dict(line.split("=", 1) for line in
+                      (ROOT / "gradle.properties").read_text(encoding="utf-8").splitlines()
+                      if "=" in line and not line.startswith("#"))
+    return cache / "fabric-loom" / properties["minecraft_version"] / "mojang_minecraft_info.json"
+
+
 def resolved_gson():
     cache = Path(os.environ.get("GRADLE_USER_HOME", Path.home() / ".gradle")) / "caches"
-    metadata = cache / "fabric-loom/26.3/mojang_minecraft_info.json"
+    metadata = minecraft_metadata(cache)
     libraries = json.loads(metadata.read_text(encoding="utf-8"))["libraries"]
     version = next(entry["name"].split(":")[2] for entry in libraries
                    if entry["name"].startswith("com.google.code.gson:gson:"))
@@ -41,7 +48,7 @@ class CrosshairPersistenceTests(unittest.TestCase):
             *(CLIENT / "crosshair" / name for name in
               ("Crosshair.java", "CrosshairManager.java", "CrosshairPresets.java")),
             ROOT / "tools/crosshair_config_test/CrosshairPersistenceBehaviorTest.java",
-            STUBS / "com/mojang/renderpearl/api/pipeline/RenderPipeline.java",
+            STUBS / "com/mojang/blaze3d/pipeline/RenderPipeline.java",
             STUBS / "net/minecraft/client/renderer/RenderPipelines.java",
             STUBS / "net/minecraft/client/gui/GuiGraphicsExtractor.java",
         ]

@@ -79,12 +79,18 @@ public final class CrosshairScreenBehaviorTest {
 
 	private static void layout() {
 		CrosshairScreenLayout wide = new CrosshairScreenLayout(1000, 600, false);
-		require(wide.panelWidth() == 600, "60% wide panel");
-		require(new CrosshairScreenLayout(500, 400, false).panelWidth() == 360, "360 minimum when space permits");
+		require(wide.panelWidth() == 400, "40% wide panel");
+		require(new CrosshairScreenLayout(500, 400, false).panelWidth() == 260, "260 minimum when space permits");
+		require(wide.previewLeft() == 416 && wide.previewTop() == 38 && wide.previewSize() == 506,
+			"wide preview origin and available square size");
+		require(new CrosshairScreenLayout(240, 160, false).previewSize() == 0, "no preview without horizontal space");
 		for (int[] viewport : new int[][] {{320, 240}, {240, 160}, {1000, 600}}) {
 			CrosshairScreenLayout l = new CrosshairScreenLayout(viewport[0], viewport[1], false);
 			require(l.left() + l.panelWidth() <= viewport[0] - 8, "panel within viewport");
-			require(l.bottom() <= viewport[1] - 28, "fixed footer protected");
+			require(l.bottom() == viewport[1] - 56, "content ends above fixed footer actions");
+			require(l.contains(l.left(), l.top()) && !l.contains(l.left() - 1, l.top())
+				&& !l.contains(l.left() + l.panelWidth(), l.top()) && !l.contains(l.left(), l.bottom()),
+				"left/top inclusive and right/bottom exclusive content bounds");
 			for (int i = 0; i < 8; i++) {
 				int scroll = l.reveal(i, 0);
 				require(l.rowY(i, scroll) >= l.top(), "revealed row top " + i);
@@ -119,9 +125,22 @@ public final class CrosshairScreenBehaviorTest {
 	private static void render() {
 		Fixture f = fixture(1000, 600);
 		GuiGraphicsExtractor g = draw(f.screen);
-		require(g.fills.getFirst().color() == 0xFF001C05, "opaque fullscreen palette");
-		require(g.fills.getFirst().x2() == 1000 && g.fills.getFirst().y2() == 600, "full viewport");
-		require(g.fills.stream().filter(r -> r.color() == 0xFF001006).count() == 5, "two tabs three panels");
+		require(g.fills.stream().noneMatch(r -> r.x1() == 0 && r.y1() == 0 && r.x2() == 1000 && r.y2() == 600),
+			"overlay submits no fullscreen background");
+		var contentClip = new GuiGraphicsExtractor.Clip(8, 38, 408, 544);
+		require(g.fills.stream().filter(r -> r.color() == 0xFF001006).toList().equals(List.of(
+			new GuiGraphicsExtractor.Fill(8, 8, 42, 30, 0xFF001006, null, null),
+			new GuiGraphicsExtractor.Fill(48, 8, 82, 30, 0xFF001006, null, null),
+			new GuiGraphicsExtractor.Fill(8, 550, 68, 572, 0xFF001006, null, null),
+			new GuiGraphicsExtractor.Fill(74, 550, 134, 572, 0xFF001006, null, null),
+			new GuiGraphicsExtractor.Fill(140, 550, 200, 572, 0xFF001006, null, null),
+			new GuiGraphicsExtractor.Fill(8, 38, 408, 124, 0xFF001006, contentClip, null),
+			new GuiGraphicsExtractor.Fill(8, 132, 408, 218, 0xFF001006, contentClip, null),
+			new GuiGraphicsExtractor.Fill(8, 226, 408, 286, 0xFF001006, contentClip, null))),
+			"exact two tabs, three footer actions and three clipped panels");
+		require(g.texts.stream().filter(t -> t.value().equals("Size")).allMatch(t -> contentClip.equals(t.clip())),
+			"settings rows use content scissor");
+		assertPreview(g, f.config.settings(), 0xFFFFFFFF);
 		require(g.texts.stream().filter(t -> t.y() < 38).count() == 2, "two visible tab names");
 		require(g.texts.stream().noneMatch(GuiGraphicsExtractor.Text::shadow), "no shadows");
 		require(g.fills.stream().anyMatch(r -> r.color() == 0xFFBDEFF2 && r.y2() - r.y1() == 1), "cyan thin underline");
@@ -143,6 +162,40 @@ public final class CrosshairScreenBehaviorTest {
 		g = draw(f.screen);
 		require(g.fills.stream().filter(r -> r.color() == 0xFFBDEFF2 && r.y1() == 29).count() == 1,
 			"selected tab indicator distinct from unselected tab keyboard focus");
+		require(g.fills.stream().anyMatch(r -> r.color() == 0xFFBDEFF2 && r.x1() == 56 && r.x2() == 74
+			&& r.y1() == 26 && r.y2() == 27), "unselected tab has separate inset focus indicator");
+		f.config.update(f.config.settings().withType(CrosshairSettings.Type.DOT).withSize(2)
+			.withRgb(0x123ABC).withOpacity(50).withInverted(false));
+		g = draw(f.screen);
+		assertPreview(g, f.config.settings(), 0x80123ABC);
+		require(!child(f.screen, 6).active && !child(f.screen, 7).active, "draw refreshes relevance after settings change");
+		Fixture small = fixture(240, 160);
+		g = draw(small.screen);
+		require(g.fills.stream().filter(r -> r.color() == 0xCC001006).toList().equals(List.of(
+			new GuiGraphicsExtractor.Fill(240, 38, 240, 38, 0xCC001006, null, null))), "small preview has zero extent");
+		require(g.fills.stream().noneMatch(r -> r.pipeline() != null), "no preview crosshair fills without space");
+	}
+
+	private static void assertPreview(GuiGraphicsExtractor g, CrosshairSettings settings, int color) {
+		var clip = new GuiGraphicsExtractor.Clip(416, 38, 922, 544);
+		require(g.fills.stream().filter(r -> r.color() == 0xCC001006).toList().equals(List.of(
+			new GuiGraphicsExtractor.Fill(416, 38, 922, 544, 0xCC001006, null, null))), "translucent preview bounds");
+		Set<String> expected = new HashSet<>();
+		for (String pixel : expectedPixels(settings)) {
+			String[] xy = pixel.split(",");
+			int left = 669 + Integer.parseInt(xy[0]) * 4;
+			int top = 291 + Integer.parseInt(xy[1]) * 4;
+			for (int x = left; x < left + 4; x++) for (int y = top; y < top + 4; y++) expected.add(x + "," + y);
+		}
+		Set<String> actual = new HashSet<>();
+		for (var fill : g.fills.stream().filter(r -> r.pipeline() != null).toList()) {
+			require(clip.equals(fill.clip()), "preview crosshair scissor");
+			require(fill.pipeline() == (settings.inverted() ? RenderPipelines.GUI_INVERT : RenderPipelines.GUI)
+				&& fill.color() == color, "preview pipeline and rendering color follow settings");
+			for (int x = fill.x1(); x < fill.x2(); x++) for (int y = fill.y1(); y < fill.y2(); y++)
+				require(actual.add(x + "," + y), "scaled preview fills do not overlap");
+		}
+		require(actual.equals(expected), "preview emits exact four-times-scaled geometry at its center");
 	}
 
 	private static void interaction() throws Exception {
@@ -474,13 +527,19 @@ public final class CrosshairScreenBehaviorTest {
 		require(!f.config.settings().inverted(), "upper boundary click toggles once");
 		require(inverted.getY() == 38, "focus reveals upper row");
 		f.screen.mouseScrolled(20, 80, 0, 100);
-		f.screen.mouseScrolled(20, 80, 0, -0.5);
+		f.screen.mouseScrolled(20, 80, 0, -1.5);
 		AbstractWidget size = child(f.screen, 5);
-		require(size.getY() < 132 && size.getBottom() > 132, "partially visible lower row");
-		require(f.screen.mouseClicked(new MouseButtonEvent(20, 131, new MouseButtonInfo(1, 0)), false), "lower clipped row click accepted after reveal");
-		replace(f.screen, "7"); press(f.screen, InputConstants.KEY_RETURN);
-		require(f.config.settings().size() == 7, "lower boundary click starts editor");
-		require(!size.isMouseOver(20, 132) && !inverted.isMouseOver(20, 37), "clip boundary remains exclusive");
+		require(size.getY() == 97 && size.getBottom() == 123, "scroll 39 places Size across lower clip boundary 104");
+		require(child(f.screen, 10).getY() == 110 && child(f.screen, 10).getBottom() == 132,
+			"Apply remains below content clip rather than a row click target");
+		require(f.screen.mouseClicked(new MouseButtonEvent(20, 103, new MouseButtonInfo(1, 0)), false), "lower clipped row click accepted after reveal");
+		require(f.screen.getFocused() == size && size.getY() == 78 && size.getBottom() == 104, "focus reveals lower row fully");
+		replace(f.screen, "7");
+		require(f.config.settings().size() == 4 && draw(f.screen).texts.stream().anyMatch(t -> t.value().equals("7") && t.y() == 86),
+			"lower boundary click starts editor without committing text");
+		press(f.screen, InputConstants.KEY_RETURN);
+		require(f.config.settings().size() == 7, "lower boundary editor commits Size");
+		require(!size.isMouseOver(20, 104) && !inverted.isMouseOver(20, 37), "clip boundary remains exclusive");
 		f.screen.setFocused(child(f.screen, 3)); press(f.screen, InputConstants.KEY_RIGHT);
 		AbstractWidget thickness = child(f.screen, 6);
 		require(!thickness.active && !thickness.mouseClicked(new MouseButtonEvent(20, thickness.getY() + 10, new MouseButtonInfo(1, 0)), false), "irrelevant row rejects mouse");

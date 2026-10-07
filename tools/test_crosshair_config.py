@@ -23,7 +23,7 @@ class CrosshairConfigTests(unittest.TestCase):
             CLIENT / "crosshair/CrosshairPresets.java",
             CLIENT / "crosshair/Crosshair.java",
             ROOT / "tools/crosshair_config_test/CrosshairConfigBehaviorTest.java",
-            STUBS / "com/mojang/renderpearl/api/pipeline/RenderPipeline.java",
+            STUBS / "com/mojang/blaze3d/pipeline/RenderPipeline.java",
             STUBS / "net/minecraft/client/renderer/RenderPipelines.java",
             STUBS / "net/minecraft/client/gui/GuiGraphicsExtractor.java",
         ]
